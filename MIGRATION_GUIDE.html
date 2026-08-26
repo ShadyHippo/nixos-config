@@ -120,7 +120,7 @@ sudo mkdir -p /mnt/boot && sudo mount /dev/nvme0n1p1 /mnt/boot
   <strong>Step 5: Clone config + generate hardware file</strong>
 <pre>
 sudo nix-env -iA nixos.git
-git clone git@github.com:ShadyHippo/nixos-config.git /mnt/config
+git clone https://github.com/ShadyHippo/nixos-config.git /mnt/config
 cd /mnt/config
 sudo nixos-generate-config --root /mnt --dir .
 
