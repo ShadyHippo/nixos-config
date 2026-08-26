@@ -1,0 +1,171 @@
+# sway config — near-stock defaults + hippo's chosen additions
+# Result of the great rebinding poll. Deviations from stock are tagged [mine].
+#
+# Focus uses VIM DIRECTIONS (hippo's choice): h=left j=down k=up l=right.
+# Consequence: $mod+h does NOT split (that's the whole point).
+# Horizontal split moved to $mod+semicolon; vertical stays $mod+v.
+
+set $mod Mod4
+set $alt Mod1
+set $term ghostty
+set $menu fuzzel
+
+font Cousine Nerd Font 14
+
+focus_follows_mouse no                  # [mine] i3 behavior
+seat * hide_cursor 3000                 # [mine]
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+# When you pick a wallpaper, drop it at ~/Pictures/wallpaper.jpg and swap the
+# next line for:   output * bg ~/Pictures/wallpaper.jpg fill
+output * bg #282828 solid_color         # [mine]
+
+# ---------------------------------------------------------------------------
+# Input
+# ---------------------------------------------------------------------------
+input type:touchpad {
+    dwt disabled                        # [mine] palm-rejection jank, historic
+    natural_scroll enabled              # [mine] drag-the-content scrolling
+    tap enabled
+}
+
+# ---------------------------------------------------------------------------
+# Appearance — gruvbox [mine], Regolith-style pixel borders
+# ---------------------------------------------------------------------------
+default_border pixel 2
+default_floating_border pixel 2
+titlebar_padding 4
+
+client.focused          #83a598 #83a598 #282828
+client.focused_inactive #665c54 #665c54 #ebdbb2
+client.unfocused        #3c3836 #3c3836 #bdae93
+client.urgent           #cc241d #cc241d #ebdbb2
+
+# ---------------------------------------------------------------------------
+# Autostart [all mine]
+# ---------------------------------------------------------------------------
+exec fcitx5 -d --replace                # Pinyin ready at login (Ctrl+Super+A)
+exec kanshi                             # monitor hotplug profiles
+exec mako                               # notifications
+exec waybar                             # status bar
+# Locks ONLY when the machine actually sleeps (e.g. lid close). No idle timers.
+exec swayidle -w before-sleep 'swaylock -f -c 282828'
+
+# ---------------------------------------------------------------------------
+# Screenshots [mine] — clipboard only, Windows-snipping-tool style
+#   PrintScreen        whole screen -> clipboard
+#   Ctrl+PrintScreen   focused window -> clipboard
+#   $mod+Shift+s       snip tool: rectangle select with LIVE PIXEL MEASUREMENTS
+# ---------------------------------------------------------------------------
+bindsym Print               exec ~/.config/sway/scripts/screenshot.sh full
+bindsym Ctrl+Print          exec ~/.config/sway/scripts/screenshot.sh window
+bindsym $mod+Shift+s        exec ~/.config/sway/scripts/screenshot.sh snip
+
+# Resolution presets (game streaming / native play on the Intel GPU) [mine]
+bindsym $mod+F10 exec ~/.config/sway/scripts/set-res.sh 720     # native play
+bindsym $mod+F11 exec ~/.config/sway/scripts/set-res.sh 1080    # streaming
+bindsym $mod+F12 exec ~/.config/sway/scripts/set-res.sh 4k      # desktop
+
+# ---------------------------------------------------------------------------
+# Core bindings — STOCK SWAY DEFAULTS from here down (except tags)
+# ---------------------------------------------------------------------------
+bindsym $mod+Return exec $term
+bindsym $mod+d exec $menu
+bindsym $mod+Shift+q kill
+
+# focus: vim directions + arrows [mine - vim-style]
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# splits: ; took over horizontal when h became focus-left [mine]; v is stock
+bindsym $mod+semicolon splith
+bindsym $mod+v splitv
+bindsym $mod+f fullscreen toggle
+bindsym $mod+a focus parent
+
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+6 workspace number 6
+bindsym $mod+7 workspace number 7
+bindsym $mod+8 workspace number 8
+bindsym $mod+9 workspace number 9
+bindsym $mod+0 workspace number 10
+
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+bindsym $mod+Shift+0 move container to workspace number 10
+
+bindsym $mod+minus move scratchpad
+bindsym $mod+Shift+minus scratchpad show
+
+bindsym $mod+Shift+c reload
+
+set $resize_mode Resize
+mode $resize_mode {
+    # same vim directions as focus: pull edges around
+    bindsym h resize shrink width 10 px
+    bindsym j resize grow height 10 px
+    bindsym k resize shrink height 10 px
+    bindsym l resize grow width 10 px
+    bindsym Left resize shrink width 10 px
+    bindsym Down resize shrink height 10 px
+    bindsym Up resize grow height 10 px
+    bindsym Right resize grow width 10 px
+    bindsym Escape mode default
+    bindsym Return mode default
+}
+bindsym $mod+r mode $resize_mode
+
+bindsym $mod+Shift+e exec swaynag -t warning -m 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' -B 'Yes, exit sway' 'swaymsg exit'
+
+# ---------------------------------------------------------------------------
+# Window rules [mine] — ported from 90_windows
+# ---------------------------------------------------------------------------
+for_window [app_id="(?i)signal"] move to workspace number 9
+for_window [class="(?i)signal"] move to workspace number 9
+for_window [app_id="(?i)slack"] move to workspace number 8
+for_window [class="(?i)slack"] move to workspace number 8
+for_window [title="Spacers"] floating enable
+for_window [app_id="(?i)qalculate"] floating enable
+for_window [title="Qalculate!"] floating enable
+
+# ---------------------------------------------------------------------------
+# Bar
+# ---------------------------------------------------------------------------
+bar {
+    swaybar_command waybar              # [mine]
+}

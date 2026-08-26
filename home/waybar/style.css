@@ -1,0 +1,65 @@
+/* waybar — gruvbox */
+* {
+    border: none;
+    border-radius: 0;
+    font-family: "Cousine Nerd Font", sans-serif;
+    font-size: 14px;
+    min-height: 0;
+}
+
+window#waybar {
+    background: #282828;
+    color: #ebdbb2;
+}
+
+#workspaces button {
+    padding: 0 6px;
+    background: transparent;
+    color: #bdae93;
+}
+
+#workspaces button.focused {
+    background: #83a598;
+    color: #282828;
+}
+
+#workspaces button.urgent {
+    background: #cc241d;
+    color: #ebdbb2;
+}
+
+#window {
+    font-style: italic;
+}
+
+#clock,
+#battery,
+#cpu,
+#memory,
+#temperature,
+#bluetooth,
+#pulseaudio,
+#tray {
+    padding: 0 10px;
+    background: transparent;
+}
+
+#battery.warning {
+    color: #fabd2f;
+}
+
+#battery.critical:not(.charging) {
+    color: #fb4934;
+    animation: blink 1s linear infinite alternate;
+}
+
+#temperature.critical {
+    color: #fb4934;
+}
+
+@keyframes blink {
+    to {
+        background: #cc241d;
+        color: #282828;
+    }
+}

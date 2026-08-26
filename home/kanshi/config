@@ -1,0 +1,20 @@
+# kanshi — monitor hotplug profiles
+# Output names can be checked with:  swaymsg -t get_outputs
+# (internal panel is eDP-1 on this machine; HDMI port is usually HDMI-A-1)
+
+profile laptop {
+    output eDP-1 enable scale 1.5
+}
+
+# TV plugged into HDMI: mirror the internal panel at its native res.
+# kanshi applies this automatically when HDMI-A-1 appears.
+profile tv-mirror {
+    output eDP-1 enable scale 1.5
+    exec swaymsg 'output HDMI-A-1 mirror eDP-1'
+}
+
+# If you ever want EXTENDED instead of mirror, swap the tv-mirror profile for:
+# profile tv-extended {
+#     output HDMI-A-1 mode 3840x2160 position 0,0
+#     output eDP-1 scale 1.5 position 3840,0
+# }

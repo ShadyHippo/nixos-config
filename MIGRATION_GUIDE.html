@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XPS 15 9570 — NixOS Migration Guide</title>
+<style>
+  :root { font: 16px/1.6 system-ui, -apple-system, sans-serif; max-width: 700px; margin: 0 auto; padding: 1rem; color: #1a1a1a; }
+  @media (prefers-color-scheme: dark) { :root { background: #1a1a1a; color: #e0e0e0; } h1,h2,h3 { color: #f0f0f0; } code,pre { background: #2a2a2a; color: #98d4a8; } a { color: #7fc4ff; } }
+  h1 { font-size: 1.5rem; border-bottom: 2px solid; padding-bottom: .4rem; }
+  h2 { font-size: 1.2rem; margin-top: 2rem; color: #336; }
+  @media (prefers-color-scheme: dark) { h2 { color: #a8c4ff; } }
+  h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+  pre { overflow-x: auto; padding: .8rem; border-radius: 6px; font-size: .85rem; line-height: 1.5; }
+  code { font-family: ui-monospace, monospace; font-size: .9rem; padding: 0.1em 0.3em; border-radius: 3px; }
+  .step { background: #e8f0fe; padding: .8rem 1rem; border-left: 4px solid #336; margin: 1rem 0; border-radius: 0 6px 6px 0; }
+  @media (prefers-color-scheme: dark) { .step { background: #1e2a3a; border-left-color: #7fc4ff; } }
+  .warn { background: #fff3cd; border-left-color: #cc8800; }
+  @media (prefers-color-scheme: dark) { .warn { background: #2a2200; border-left-color: #cc8800; } }
+  .danger { background: #ffe0e0; border-left-color: #c00; }
+  @media (prefers-color-scheme: dark) { .danger { background: #2a0000; border-left-color: #f44; } }
+  .check { background: #e0ffe0; border-left-color: #080; }
+  @media (prefers-color-scheme: dark) { .check { background: #0a2a0a; border-left-color: #0c0; } }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th,td { border: 1px solid #ccc; padding: .5rem .7rem; text-align: left; font-size: .9rem; }
+  @media (prefers-color-scheme: dark) { th,td { border-color: #555; } th { background: #2a2a2a; } }
+  ul { padding-left: 1.5rem; }
+  li { margin: .3rem 0; }
+</style>
+</head>
+<body>
+
+<h1>XPS 15 9570 — NixOS Migration Guide</h1>
+<p style="opacity:.7;font-size:.85rem">Generated from a 17-file config built on the Debian machine. Read top-to-bottom.</p>
+
+<!-- ===== BEFORE THE WIPE ===== -->
+<h2>Part 1 — Before the Wipe</h2>
+
+<div class="danger step">
+  <strong>Step 1: Git-init the NixOS config and push it somewhere retrievable</strong><br>
+  The installer needs to clone this repo. If you wipe before pushing, the config doesn't exist.
+<pre>
+cd ~/Programming/slop/desktop_config/nix
+git init
+git add .
+git commit -m "NixOS 26.05 config for XPS 15 9570"
+git remote add origin git@github.com:ShadyHippo/nixos-config.git  # or wherever
+git push -u origin main
+</pre>
+</div>
+
+<div class="step">
+  <strong>Step 2: Backup to NAS</strong><br>
+  Mount the SMB share first, then rsync everything irreplaceable. Omits Signal (intentional fresh start), Steam (reinstalls via library), and git repos (re-clonable).
+<pre>
+# Mount the anonymous SMB share
+sudo apt install -y cifs-utils
+sudo mkdir -p /mnt/nas
+sudo mount -t cifs //192.168.0.20/deleteme /mnt/nas -o guest,uid=$(id -u),gid=$(id -g)
+
+# rsync
+rsync -avP --info=progress2 \
+  ~/Programming/slop/desktop_config/nix/MIGRATION_GUIDE.html \
+  ~/Programming/slop/desktop_config/nix/ \
+  ~/Passwords.kdbx \
+  ~/.ssh \
+  ~/.config/{dolphin-emu,zellij,qBittorrent,fcitx5,gh,kdeconnect} \
+  ~/.local/share/dolphin-emu \
+  ~/.local/share/mupen64plus \
+  ~/.var/app/org.libretro.RetroArch \
+  ~/.zen \
+  ~/Games \
+  ~/Documents ~/Pictures ~/Videos ~/Music ~/Downloads \
+  /mnt/nas/xps15-pre-nixos/
+
+# Unmount when done
+sudo umount /mnt/nas
+</pre>
+  <strong>What this captures:</strong> Passwords.kdbx, SSH keys+config+known_hosts (includes NAS/unraid shortcuts), all Dolphin GC/Wii/GBA memory cards+saves+texture packs, RetroArch saves+BIOSes, N64 saves, Zen browser profile (bookmarks/passwords/extensions), ROMs+texture pack master, personal media.
+</div>
+
+<div class="step">
+  <strong>Step 3: Commit your uncommitted work</strong>
+<pre>
+# my_scripts (incl. img feh→imv patch)
+cd ~/.local/bin/my_scripts
+git add -A
+git commit -m "pre-NixOS: img feh→imv, misc"
+git push
+
+# kickstart.nvim (untracked db_queries/)
+cd ~/.config/nvim
+git add -A
+git commit -m "pre-NixOS"
+git push
+</pre>
+</div>
+
+<!-- ===== ON THE INSTALLER ===== -->
+<h2>Part 2 — On the NixOS 26.05 Installer USB</h2>
+
+<p>Boot the ISO, connect to Wi-Fi:</p>
+<pre>sudo nmcli device wifi connect SSID password PASS</pre>
+
+<div class="step">
+  <strong>Step 4: Partition (whole NVMe, UEFI)</strong>
+<pre>
+sudo parted /dev/nvme0n1 -- mklabel gpt
+sudo parted /dev/nvme0n1 -- mkpart ESP fat32 1MiB 1GiB
+sudo parted /dev/nvme0n1 -- set 1 esp on
+sudo parted /dev/nvme0n1 -- mkpart primary 1GiB 100%
+sudo mkfs.fat -F32 /dev/nvme0n1p1
+sudo mkfs.ext4 -L nixos /dev/nvme0n1p2
+sudo mount /dev/disk/by-label/nixos /mnt
+sudo mkdir -p /mnt/boot && sudo mount /dev/nvme0n1p1 /mnt/boot
+</pre>
+</div>
+
+<div class="step">
+  <strong>Step 5: Clone config + generate hardware file</strong>
+<pre>
+sudo nix-env -iA nixos.git
+git clone git@github.com:ShadyHippo/nixos-config.git /mnt/config
+cd /mnt/config
+sudo nixos-generate-config --root /mnt --dir .
+
+# nixos-generate-config overwrites configuration.nix — restore ours:
+git checkout configuration.nix
+# Keep the generated hardware-configuration.nix (has your real UUIDs)
+</pre>
+</div>
+
+<div class="step">
+  <strong>Step 6: Install</strong>
+<pre>
+sudo nixos-install --flake /mnt/config#xps15
+# When done, reboot into the new system.
+</pre>
+</div>
+
+<!-- ===== FIRST LOGIN ===== -->
+<h2>Part 3 — First Login</h2>
+
+<div class="step">
+  <strong>Step 7: Credentials</strong>
+<pre>
+passwd                    # change from 'changeme'
+gh auth login             # restores GitHub/git credentials
+sudo tailscale up         # mesh VPN
+</pre>
+</div>
+
+<div class="step">
+  <strong>Step 8: Clone repos + dev tools</strong>
+<pre>
+# Neovim config
+git clone https://github.com/ShadyHippo/kickstart.nvim.git ~/.config/nvim
+
+# Your scripts (incl. the img imv patch)
+git clone https://github.com/ShadyHippo/my_scripts ~/.local/bin/my_scripts
+
+# mise-managed tools (opencode + maki + deno — deno is yt-dlp's JS runtime)
+mise up
+
+# Rust + Leptos stack (rustup lives outside nix by design)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cargo install cargo-leptos templ-cli air
+</pre>
+</div>
+
+<div class="step">
+  <strong>Step 9: Restore Zen browser profile</strong><br>
+  Your bookmarks, passwords, extensions, and settings come from the backup.
+<pre>
+# If ~/.zen doesn't already exist (it should from the rsync):
+# Just open Zen once, it creates the profile directory.
+# Your backed-up ~/.zen from the rsync is already in place.
+# Extensions may need a rebuild (different binary hash) but auto-update on first launch.
+</pre>
+</div>
+
+<div class="step">
+  <strong>Step 10: Dolphin texture packs</strong>
+<pre>
+# Luigi's Mansion (GLME01 matches your USA .gcm)
+cp -r ~/Games/Dolphin_Textures/Textures/GLME01 \
+      ~/.local/share/dolphin-emu/Load/Textures/
+
+# Fire Emblem PoR — your disc is USA (GFEM01) but the pack says GFEE01 (EU).
+# RENAME while copying so Dolphin matches it:
+cp -r ~/Games/Dolphin_Textures/Textures/GFEE01 \
+      ~/.local/share/dolphin-emu/Load/Textures/GFEM01
+</pre>
+</div>
+
+<!-- ===== VERIFY ===== -->
+<h2>Part 4 — Verify Everything Works</h2>
+
+<div class="check step">
+  <strong>WiFi:</strong> Should connect automatically on boot (Intel AC 9560, iwlwifi driver). If not: <code>sudo nmtui</code> to connect manually.
+</div>
+
+<div class="check step">
+  <strong>NVIDIA dead:</strong>
+<pre>cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status</pre>
+  Expected: <code>suspended</code>
+</div>
+
+<div class="check step">
+  <strong>Undervolt applied:</strong>
+<pre>sudo undervolt read</pre>
+  Expected: core ≈ -130 mV, GPU ≈ -150 mV, short 45W/0.002s, long 35W/28s
+</div>
+
+<div class="check step">
+  <strong>Pinyin works:</strong> Open ghostty, <code>Ctrl+Super+A</code>, type "nihao". Should output 你好.
+</div>
+
+<div class="check step">
+  <strong>Resolution presets:</strong> Press <code>$mod+F10</code>, <code>$mod+F11</code>, <code>$mod+F12</code>. Screen res should change (720p / 1080p / 4K). F12 restores desktop mode.
+</div>
+
+<div class="check step">
+  <strong>Printer:</strong> System Settings → Printers → Brother MFC-J6550DW should appear via driverless IPP.
+</div>
+
+<div class="check step">
+  <strong>Screenshot snip tool:</strong> <code>$mod+Shift+s</code> — should show slurp's rectangle selector with live pixel measurements in the corner.
+</div>
+
+<div class="check step">
+  <strong>Zen profile:</strong> Open Zen — bookmarks, extensions, and saved passwords should be intact from the rsync'd <code>~/.zen</code>.
+</div>
+
+<!-- ===== KEY BINDINGS REFERENCE ===== -->
+<h2>Key Bindings Reference</h2>
+
+<table>
+<tr><th>Action</th><th>Key</th></tr>
+<tr><td>Terminal</td><td><code>$mod + Return</code> (ghostty)</td></tr>
+<tr><td>Launcher</td><td><code>$mod + d</code> (fuzzel)</td></tr>
+<tr><td>Kill window</td><td><code>$mod + Shift + q</code></td></tr>
+<tr><td>Focus</td><td><code>$mod + h/j/k/l</code> (vim) + arrows</td></tr>
+<tr><td>Move window</td><td><code>$mod + Shift + h/j/k/l</code> + arrows</td></tr>
+<tr><td>Split horizontal</td><td><code>$mod + ;</code></td></tr>
+<tr><td>Split vertical</td><td><code>$mod + v</code></td></tr>
+<tr><td>Toggle layout</td><td><code>$mod + e</code></td></tr>
+<tr><td>Stacking / Tabbed</td><td><code>$mod + s</code> / <code>$mod + w</code></td></tr>
+<tr><td>Fullscreen</td><td><code>$mod + f</code></td></tr>
+<tr><td>Scratchpad move/show</td><td><code>$mod + -</code> / <code>$mod + Shift + -</code></td></tr>
+<tr><td>Resize mode</td><td><code>$mod + r</code>, then hjkl/arrows, Enter/Esc to exit</td></tr>
+<tr><td>Reload sway</td><td><code>$mod + Shift + c</code></td></tr>
+<tr><td>Exit sway (confirm)</td><td><code>$mod + Shift + e</code></td></tr>
+<tr><td>Snip tool</td><td><code>$mod + Shift + s</code> (pixel measurements via slurp -d)</td></tr>
+<tr><td>Window → clipboard</td><td><code>Ctrl + Print</code></td></tr>
+<tr><td>Full screen → clipboard</td><td><code>Print</code></td></tr>
+<tr><td>Resolution 720p</td><td><code>$mod + F10</code></td></tr>
+<tr><td>Resolution 1080p</td><td><code>$mod + F11</code></td></tr>
+<tr><td>Resolution 4K</td><td><code>$mod + F12</code></td></tr>
+<tr><td>Input method toggle</td><td><code>Ctrl + Super + A</code> (English ↔ Pinyin)</td></tr>
+</table>
+
+<!-- ===== CONFIG DECISIONS ===== -->
+<h2>Key Config Decisions (for future-you)</h2>
+
+<ul>
+  <li><strong>NixOS version:</strong> 26.05 stable. No unstable channel pulled — except VS Code (unstable input swap) and neovim (nightly overlay)</li>
+  <li><strong>Disk:</strong> ext4 plain, no LUKS, no swap (suspend only)</li>
+  <li><strong>WiFi:</strong> Intel AC 9560 (replaced the stock QCA6174). iwlwifi driver, mature + in-kernel. Firmware via <code>hardware.enableRedistributableFirmware</code></li>
+  <li><strong>dGPU:</strong> GTX 1050 Ti permanently parked in D3 — blacklist all nvidia/nouveau modules, udev power/control=auto</li>
+  <li><strong>Undervolt:</strong> services.undervolt — core -130, GPU -150, PL1 35W/28s, PL2 45W/0.002s. BIOS 1.31.0 allows it (past the 1.16 threshold). Check <code>sudo undervolt read</code> after any BIOS update via fwupd</li>
+  <li><strong>Microcode:</strong> <code>hardware.cpu.intel.updateMicrocode = true</code> — applies Intel CPU microcode at boot. Primarily for hardware errata stability, not just security mitigations</li>
+  <li><strong>Zen browser:</strong> community flake (0xc000022070), not in nixpkgs. uBlock pre-installed via enterprise policy. Profile backs up/restores from <code>~/.zen</code></li>
+  <li><strong>Maki + OpenCode:</strong> mise-managed (<code>mise up</code> updates both). Static musl binaries — no nix-ld needed</li>
+  <li><strong>yt-dlp:</strong> system package. deno (via mise) is its JS runtime — yt-dlp's own recommended default. Required for YouTube extractors</li>
+  <li><strong>Rust:</strong> rustup lives outside nix by choice. cargo-leptos/templ/air installed via cargo</li>
+  <li><strong>Touchpad:</strong> natural scrolling ON, disable-while-typing OFF (jank history)</li>
+  <li><strong>No auto-lock:</strong> lock only before suspend (swayidle). You run remote agents over SSH</li>
+  <li><strong>Signal:</strong> Fresh start, history intentionally not migrated. Purge manually via Settings → Storage when disk fills</li>
+</ul>
+
+<h2>Config Repo Structure</h2>
+<pre>
+nix/
+├── flake.nix                    # inputs + install steps (this guide lives here too)
+├── configuration.nix            # imports all modules
+├── hardware-configuration.nix   # generated at install (replace the placeholder)
+├── modules/
+│   ├── base.nix                 # boot, blacklists, locale, users, ssh, packages
+│   ├── hardware.nix             # dGPU off, TLP, thermald, keyd, undervolt, fwupd, WiFi firmware, microcode
+│   ├── audio.nix                # PipeWire
+│   ├── desktop.nix              # sway, greetd, portals, fonts, fcitx5, Qt dark
+│   ├── gaming.nix               # Steam + Proton-GE + GameMode
+│   ├── dev.nix                  # Docker, nix-ld
+│   └── apps.nix                 # poll results: signal, discord, tailscale, printing, yt-dlp, etc.
+└── home/
+    ├── default.nix              # packages, zen+uBlock, bash, git, mise, fcitx5, dolphin
+    ├── sway/config              # keybinds, autostart, gruvbox
+    ├── sway/scripts/            # set-res.sh, screenshot.sh
+    ├── kanshi/config            # monitor profiles
+    └── waybar/                  # gruvbar config + css
+</pre>
+
+<p style="opacity:.6;font-size:.8rem;margin-top:3rem;text-align:center">
+  Generated from a conversation that covered every keybind, every app, every save file, and every
+  hardware quirk on this laptop. If something breaks, check the comments in the relevant file first —
+  the reasons are documented inline.
+</p>
+
+</body>
+</html>
