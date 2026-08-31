@@ -1,0 +1,112 @@
+# Gruvbox Dark color scheme for KDE apps (Dolphin, etc.)
+# KF6 loads the active palette from a .colors scheme file (kdeglobals [General]
+# ColorScheme) - NOT from [Colors:*] overrides in kdeglobals. Place in
+# ~/.local/share/color-schemes/ and set ColorScheme in kdeglobals.
+# Colors are R,G,B integers (KConfig QColor format). Palette: gruvbox dark.
+#
+# CONTRAST HIERARCHY (so the UI doesn't melt into one flat brown blob):
+#   frame/chrome (Window, Header) = bg0  #282828  (dark)
+#   content panel + buttons (View, Button, Tooltip) = bg1 #3c3836 (lighter)
+#   zebra rows (View BackgroundAlternate) = bg2 #504945 (soft visible step)
+#   editable fields / location+search bar use [Colors:View] Base = #3c3836,
+#   which stands out against the dark #282828 toolbar above it.
+[ColorEffects:Inactive]
+Enable=false
+ChangeSelectionColor=false
+
+[Colors:View]
+BackgroundNormal=60,56,54
+BackgroundAlternate=80,73,69
+ForegroundNormal=235,219,178
+ForegroundInactive=168,153,132
+ForegroundActive=250,189,47
+ForegroundLink=131,165,152
+ForegroundVisited=177,98,134
+ForegroundNegative=251,73,52
+ForegroundNeutral=250,189,47
+ForegroundPositive=184,187,38
+DecorationFocus=131,165,152
+DecorationHover=69,133,136
+
+[Colors:Window]
+BackgroundNormal=40,40,40
+BackgroundAlternate=60,56,54
+ForegroundNormal=235,219,178
+ForegroundInactive=168,153,132
+ForegroundActive=250,189,47
+ForegroundLink=131,165,152
+ForegroundVisited=177,98,134
+ForegroundNegative=251,73,52
+ForegroundNeutral=250,189,47
+ForegroundPositive=184,187,38
+DecorationFocus=131,165,152
+DecorationHover=69,133,136
+
+[Colors:Button]
+BackgroundNormal=60,56,54
+BackgroundAlternate=40,40,40
+ForegroundNormal=235,219,178
+ForegroundInactive=168,153,132
+ForegroundActive=250,189,47
+ForegroundLink=131,165,152
+ForegroundVisited=177,98,134
+ForegroundNegative=251,73,52
+ForegroundNeutral=250,189,47
+ForegroundPositive=184,187,38
+DecorationFocus=131,165,152
+DecorationHover=69,133,136
+
+[Colors:Selection]
+BackgroundNormal=131,165,152
+BackgroundAlternate=69,133,136
+ForegroundNormal=29,32,33
+ForegroundInactive=40,40,40
+ForegroundActive=235,219,178
+ForegroundLink=250,189,47
+ForegroundVisited=177,98,134
+ForegroundNegative=251,73,52
+ForegroundNeutral=250,189,47
+ForegroundPositive=184,187,38
+
+[Colors:Tooltip]
+BackgroundNormal=60,56,54
+BackgroundAlternate=40,40,40
+ForegroundNormal=235,219,178
+ForegroundInactive=168,153,132
+ForegroundActive=250,189,47
+ForegroundLink=131,165,152
+ForegroundVisited=177,98,134
+ForegroundNegative=251,73,52
+ForegroundNeutral=250,189,47
+ForegroundPositive=184,187,38
+
+[Colors:Complementary]
+BackgroundNormal=29,32,33
+BackgroundAlternate=40,40,40
+ForegroundNormal=168,153,132
+ForegroundInactive=146,131,116
+ForegroundActive=250,189,47
+ForegroundLink=131,165,152
+ForegroundVisited=177,98,134
+ForegroundNegative=251,73,52
+ForegroundNeutral=250,189,47
+ForegroundPositive=184,187,38
+
+[Colors:Header]
+BackgroundNormal=40,40,40
+BackgroundAlternate=60,56,54
+ForegroundNormal=235,219,178
+ForegroundInactive=168,153,132
+ForegroundActive=250,189,47
+ForegroundLink=131,165,152
+ForegroundVisited=177,98,134
+ForegroundNegative=251,73,52
+ForegroundNeutral=250,189,47
+ForegroundPositive=184,187,38
+
+[General]
+Name=Gruvbox Dark
+Id=GruvboxDark
+
+[KDE]
+contrast=5

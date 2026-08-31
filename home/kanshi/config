@@ -1,20 +1,24 @@
-# kanshi — monitor hotplug profiles
-# Output names can be checked with:  swaymsg -t get_outputs
-# (internal panel is eDP-1 on this machine; HDMI port is usually HDMI-A-1)
+# kanshi — monitor hotplug profiles (DURABLE: persists across reboots/hotplug)
+# nwg-displays is for ad-hoc/session-only tweaks and is never saved; this file
+# is the source of truth for arrangement.
+# Output names via:  swaymsg -t get_outputs   (internal = eDP-1; HDMI = HDMI-A-1)
 
 profile laptop {
-    output eDP-1 enable scale 1.5
+    output eDP-1 enable scale 1
 }
 
-# TV plugged into HDMI: mirror the internal panel at its native res.
-# kanshi applies this automatically when HDMI-A-1 appears.
-profile tv-mirror {
-    output eDP-1 enable scale 1.5
+# HOME DESK: external monitor on HDMI-A-1 mirrors the internal panel at its
+# native 4K. Applies automatically on HDMI hotplug and across reboots.
+profile home-desk {
+    output eDP-1 enable scale 1
+    output HDMI-A-1 mode 3840x2160
     exec swaymsg 'output HDMI-A-1 mirror eDP-1'
 }
 
-# If you ever want EXTENDED instead of mirror, swap the tv-mirror profile for:
-# profile tv-extended {
+# The mirror target drives the geometry, so both output lines above just make
+# sure the external is enabled at 4K before the swaymsg mirror takes over.
+# (If you ever want EXTENDED instead, replace home-desk with:)
+# profile home-desk-extended {
+#     output eDP-1 scale 1 position 3840,0
 #     output HDMI-A-1 mode 3840x2160 position 0,0
-#     output eDP-1 scale 1.5 position 3840,0
 # }

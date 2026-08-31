@@ -1,12 +1,8 @@
-{ inputs, pkgs, ... }:
+{ pkgs, unstable, ... }:
 
 {
   home.username = "hippo";
   home.stateVersion = "26.05";
-
-  imports = [
-    inputs.zen-browser.homeModules.beta   # provides programs.zen-browser.*
-  ];
 
   # ---------------------------------------------------------------------------
   # Packages (user scope)
@@ -15,226 +11,317 @@
     ghostty                # terminal
     vscode                 # VS Code - swapped to unstable in flake.nix overlay (biweekly MS releases)
     neovim                 # nightly via neovim-nightly-overlay (flake.nix)
-    mise                   # dev toolchain manager: runtimes + SOTA agent CLIs
-    dolphin-emu            # GameCube/Wii emulator
     qalculate-gtk          # calculator (floating window rule exists for it)
     jq                     # used by sway screenshot/res scripts
 
-    kdePackages.dolphin    # file manager - NAS/SMB/SFTP browsing
-    kdePackages.kio-extras # network protocol support for Dolphin (smb:// sftp:// nfs://)
-    # Qt dark theme plugin (adwaita-qt6) lives in modules/desktop.nix system scope
+    # Sway session
+    fuzzel                 # app launcher ($mod+d)
+    waybar                 # status bar
+    kanshi                 # monitor hotplug profiles
+    swaylock               # screen lock
+    swayidle               # idle lock/dpms
+    mako                   # notifications
+    nwg-displays           # GUI monitor arranger — SESSION-ONLY, never saved (kanshi is durable)
+
+    kdePackages.dolphin
+    dolphin-emu            # GameCube/Wii emulator
+    # snes9x-gtk 1.63 in the 26.05 pin fails to build (jma target missing
+    # 'target_compile_definitions(jma PRIVATE ${DEFINES})' -> unzip.h not
+    # found). Patched with upstream PR #1033 (merged 2026-03-21).
+    (snes9x-gtk.overrideAttrs (old: {
+      postPatch = (old.postPatch or "") + ''
+        substituteInPlace gtk/CMakeLists.txt \
+          --replace-fail 'target_compile_options(jma PUBLIC ''${ARGS})' \
+                        'target_compile_options(jma PUBLIC ''${ARGS})
+target_compile_definitions(jma PRIVATE ''${DEFINES})'
+      '';
+    }))                 # SNES emulator (GTK UI)
+
+    swayosd                 # volume/brightness OSD popups (server autostarted in sway)
+    libpulseaudio            # pactl, for low-level audio control
+    networkmanagerapplet     # nm-applet: wifi tray menu + secrets agent (autostarted in sway)
+    wlsunset                 # nightlight, hotkey-only toggle ($mod+Shift+u)
+    polkit_gnome             # polkit-gnome-authentication-agent-1 (root prompts) - autostarted in sway
+
+    # Cursor theme (system default is a tiny placeholder X cursor)
+    bibata-cursors
+
+    # System info fetch (modern neofetch drop-in — neofetch is unmaintained)
+    fastfetch
+
+    # image tooling — convert (imagemagick) + cwebp (libwebp): required by
+    # scripts/build_db.py for thumbnail resize (--thumb 128) + WebP encoding
+    imagemagick
+    libwebp
   ];
 
-  # GTK side of dark mode: libadwaita follows the portal color-scheme,
-  # legacy GTK3 apps take the explicit theme.
-  gtk = {
-    enable = true;
-    gtk3.theme = "Adwaita-dark";
-  };
-  dconf.settings."org/gnome/desktop/interface" = {
-    color-scheme = "prefer-dark";
-    gtk-theme = "Adwaita-dark";
-  };
-
-  # ---------------------------------------------------------------------------
-  # Zen browser + guaranteed uBlock Origin via enterprise policy
-  # ---------------------------------------------------------------------------
-  programs.zen-browser = {
-    enable = true;
-    policies = {
-      DisableTelemetry = true;
-      DisableFirefoxStudies = true;
-      DisablePocket = true;
-      DontCheckDefaultBrowser = true;
-      OfferToSaveLogins = false;
-      Extensions.Install = [
-        # uBlock Origin, latest from AMO
-        "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/addon.xpi"
-      ];
-    };
-    profiles.default.id = 0;
-  };
-
-  # ---------------------------------------------------------------------------
-  # Shell (ported from your Debian .bashrc, minus all X11 hacks)
-  # ---------------------------------------------------------------------------
-  programs.bash = {
-    enable = true;
-    historySize = 1000;
-    historyFileSize = 2000;
-    historyControl = [ "ignorespace" "ignoredups" ];   # HISTCONTROL=ignoreboth
-    shellAliases = {
-      ll = "ls -alF";
-      la = "ls -A";
-      l = "ls -CF";
-      grep = "grep --color=auto";
-      fgrep = "fgrep --color=auto";
-      egrep = "egrep --color=auto";
-      alert = "notify-send --urgency=low -i \"$([ $? = 0 ] && echo terminal || echo error)\" \"$(history|tail -n1|sed -e 's/^\\s*[0-9]\\+\\s*//;s/[;&|]\\s*alert$//')\"";
-    };
-    initExtra = ''
-      # prompt (same as yours)
-      PS1="\[\e[32m\]\u\[\e[0m\]:\[\e[34m\]\w\[\e[0m\]$ "
-
-      # PATH additions (guarded - dirs appear when you clone/create them)
-      export PATH="$PATH:$HOME/.local/bin/my_scripts"
-      export PATH="$PATH:$HOME/.local/bin/AppImages"
-      export PATH="$PATH:$HOME/go/bin"
-
-      mkcdir () {
-          mkdir -p -- "$1" &&
-             cd -P -- "$1"
-      }
-
-      # Optional tool envs - activate only if present
-      [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-      [ -f "$HOME/.deno/env" ] && . "$HOME/.deno/env"
-    '';
-  };
-
+  # Cursor: bigger + a real theme (default is a tiny X cursor)
   home.sessionVariables = {
-    ANDROID_HOME = "$HOME/Android/Sdk";
+    XCURSOR_SIZE = "36";
+    XCURSOR_THEME = "Bibata-Modern-Classic";
   };
-  # Android SDK subdirs, only if the SDK exists
-  programs.bash.profileExtra = ''
-    if [ -d "$HOME/Android/Sdk" ]; then
-      export PATH="$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools"
-    fi
+
+  # Recolored Bibata: hot pink body (#ff2b6d), gruvbox dark green outline
+  # (#b8bb26). Sits in ~/.icons, which shadows the store copy of the same
+  # name. Regenerate via home/cursor/recolor.py <fill> <outline>.
+  home.file.".icons/Bibata-Modern-Classic".source = ./cursor/Bibata-Modern-Classic;
+
+  # Desktop wallpaper (gruvbox astronaut, 4K). Installed to a stable path so the
+  # sway config `output bg` (which needs an absolute path) just works.
+  home.file.".local/share/backgrounds/gruvbox-astronaut-4k.png".source =
+    ../images/gruvbox_astronaut-4k.png;
+
+  # X11 apps (Discord/Signal = Electron on XWayland) don't get the cursor via
+  # sway's seat, they resolve it via libXcursor: ~/.icons/default must exist
+  # and inherit, otherwise they fall back to the stock X cursor.
+  home.file.".icons/default/index.theme".text = ''
+    [Icon Theme]
+    Inherits=Bibata-Modern-Classic
   '';
 
-  # readline: your tab-completion behavior (menu cycling)
-  home.file.".inputrc".text = ''
-    set completion-ignore-case on
-    set show-all-if-ambiguous on
-    set menu-complete-display-prefix on
-    "\t": menu-complete
-    "\e[Z": menu-complete-backward
-  '';
+  home.file.".config/ghostty/config".source = ./ghostty/config;
 
-  # ---------------------------------------------------------------------------
-  # Dev tools
-  # ---------------------------------------------------------------------------
-  programs.mise.enable = true;
+  # VS Code icon: the package ships hicolor/1024x1024/apps/vscode.png but the
+  # launcher shows a blank box; pin it into the user icon theme so it resolves.
+  home.file.".local/share/icons/hicolor/128x128/apps/vscode.png".source =
+    "${pkgs.vscode}/share/icons/hicolor/1024x1024/apps/vscode.png";
 
-  # mise-managed global tools (SOTA lane). Language runtimes get added here by
-  # 'mise use -g <tool>@<version>' as you need them; this file is the source of
-  # truth so a fresh machine reproduces the set.
-  # Hot-pink cursor: possible via oreo-cursors-plus (in nixpkgs) with a custom
-  # cursorsConf override — it regenerates the theme in any color you specify,
-  # but needs a derivation tweak + upstream conf format. A later project.
-  # Skeleton for ANY cursor theme once chosen:
-  # home.pointerCursor = {
-  #   package = pkgs.phinger-cursors;        # or your pink build
-  #   name = "phinger-cursors-light";
-  #   size = 32;                             # logical px at scale 1.5 ≈ your old 48
-  # };
-
-  xdg.configFile."mise/config.toml".text = ''
-    [tools]
-    opencode = "latest"
-    maki = "ubi:tontinton/maki"   # static musl binary from GitHub releases
-    deno = "latest"               # yt-dlp uses deno as JS runtime for some extractors (YouTube signatures etc.)
-    # node = "lts"                # uncomment if something else needs node specifically
-    # go = "latest"
-    # python = "3.12"
-  '';
-
-  programs.git = {
-    enable = true;
-    userName = "ShadyHippo";
-    userEmail = "tim.vandyke123@gmail.com";
-    extraConfig = {
-      push.autoSetupRemote = true;
-      credential."https://github.com".helper = "!${pkgs.gh}/bin/gh auth git-credential";
-      credential."https://gist.github.com".helper = "!${pkgs.gh}/bin/gh auth git-credential";
-    };
-  };
-  programs.gh.enable = true;
-
-  programs.vscode.enable = true;
-
-  # ---------------------------------------------------------------------------
-  # fcitx5: English + Simplified Pinyin, toggled with Ctrl+Super+A
-  # (preseeded so no trip to fcitx5-configtool needed)
-  # ---------------------------------------------------------------------------
+  # fcitx5: preseed IMs (keyboard-us + Pinyin) + trigger keys. Without this the
+  # profile only has keyboard-us, so the tray shows "input" and clicking it does
+  # nothing. Restart fcitx5 after switching (relogin or `fcitx5 -d --replace`).
   xdg.configFile."fcitx5/profile".text = ''
+    [Profile]
+    EnabledIMList=pinyin:False,keyboard-us:True
+
     [Groups/0]
+    # Group Name
     Name=Default
+    # Layout
     Default Layout=us
-    DefaultIM=pinyin
+    # Default Input Method
+    DefaultIM=keyboard-us
 
     [Groups/0/Items/0]
+    # Name
     Name=keyboard-us
+    # Layout
+    Layout=
 
     [Groups/0/Items/1]
+    # Name
     Name=pinyin
+    # Layout
+    Layout=
 
     [GroupOrder]
     0=Default
   '';
 
+  # KeyList is comma-separated (fcitx5 source, globalconfig.cpp). Toggle =
+  # Ctrl+Super+a (user's choice; Ctrl+Space dropped - VS Code uses it for
+  # IntelliSense, and it was unreliable in some apps anyway).
+  # ShareInputState=All makes the IM state GLOBAL (not per-app; default No).
+  # Enum verified in fcitx5 globalconfig.cpp BehaviorConfig.
   xdg.configFile."fcitx5/config".text = ''
     [Hotkey]
     TriggerKeys=Control+Super+a
-    EnumerateWithTriggerKeys=True
+
+    [Behavior]
+    ShareInputState=All
   '';
 
-  # ---------------------------------------------------------------------------
-  # Dolphin: Fire Emblem Path of Radiance texture pack setup
-  # ---------------------------------------------------------------------------
-  xdg.configFile."dolphin-emu/GFX.ini".text = ''
-    [Enhancements]
-    HiresTextures = True
+  # fcitx5 UI is sized off the Classic UI font (default "Sans 10" per
+  # classicui.h). On 4K@scale 1 that renders ~10px. Doubled to 20 for the
+  # candidate window, tray menu, and tray label (flat INI, no [General]
+  # section). Restart fcitx5 after switching (relogin or `fcitx5 -d --replace`).
+  xdg.configFile."fcitx5/conf/classicui.conf".text = ''
+    Font=Sans 24
+    MenuFont=Sans 24
+    TrayFont=Sans Bold 24
   '';
 
-  xdg.configFile."dolphin-emu/GameSettings/GFEM01.ini".text = ''
-    # Fire Emblem: Path of Radiance (US - matches your .iso)
-    [Enhancements]
-    HiresTextures = True
-  '';
+  xdg.configFile."fuzzel/fuzzel.ini".source = ./fuzzel/fuzzel.ini;
+  xdg.configFile."mako/config".source = ./mako/config;
 
-  # Your pack master lives in ~/Games/Dolphin_Textures with EU-style IDs:
-  #   GFEE01 = PoR (your disc is USA/GFEM01 -> RENAME GFEE01->GFEM01 when copying!)
-  #   GLME01 = Luigi's Mansion (matches your USA .gcm, use as-is)
-  home.file.".local/share/dolphin-emu/Load/Textures/README_COPY_PACK_HERE.txt".text = ''
-    Texture pack install notes (from the great migration):
+  # fastfetch (neofetch drop-in): no config override — uses pure defaults,
+  # which auto-detects + prints the NixOS logo. My earlier custom config
+  # disabled the logo with "type":"none". Remove it to get the logo back.
 
-      cp -r ~/Games/Dolphin_Textures/Textures/GLME01 ~/.local/share/dolphin-emu/Load/Textures/
+  # pinyin ready at login (Ctrl+Super+A)
+  programs.bash.enable = true;
 
-      # PoR: your disc is USA but the pack folder says GFEE01 (EU).
-      # Rename while copying or Dolphin won't match it:
-      cp -r ~/Games/Dolphin_Textures/Textures/GFEE01 \
-            ~/.local/share/dolphin-emu/Load/Textures/GFEM01
-
-    Verify the ID shown in Dolphin's title bar matches the folder name.
-  '';
-
-  # ---------------------------------------------------------------------------
-  # Dotfiles (real files next to this one, easier to edit than heredocs)
-  # ---------------------------------------------------------------------------
-  xdg.configFile."sway/config".source = ./sway/config;
-  xdg.configFile."sway/scripts/set-res.sh" = {
-    source = ./sway/scripts/set-res.sh;
-    executable = true;
+  programs.mise = {
+    enable = true;
+    package = unstable.mise;
   };
+
+  xdg.configFile."mise/config.toml".text = ''
+    [tools]
+    opencode = "latest"
+    "github:tontinton/maki" = "latest"
+    "github:yt-dlp/yt-dlp" = { version = "latest", github_attestations = false }
+    deno = "latest"
+    golang = "latest"
+  '';
+
+  programs.gh.enable = true;
+
+  programs.git = {
+    enable = true;
+    settings = {
+      user.name = "ShadyHippo";
+      user.email = "tim.vandyke123@gmail.com";
+      push.autoSetupRemote = true;
+    };
+  };
+
+  programs.vscode = {
+    enable = true;
+    profiles.default.extensions = with pkgs.vscode-extensions; [
+      golang.go
+      jdinhlife.gruvbox
+      jnoortheen.nix-ide
+      mechatroner.rainbow-csv
+      oderwat.indent-rainbow
+      vscodevim.vim
+      llvm-vs-code-extensions.vscode-clangd
+      dbaeumer.vscode-eslint
+      esbenp.prettier-vscode
+      mkhl.direnv
+    ];
+    profiles.default.userSettings = {
+      "workbench.sideBar.location" = "right";
+      "window.zoomLevel" = 2.5;
+      "workbench.colorTheme" = "Gruvbox Dark Hard";
+      "vim.useSystemClipboard" = true;
+      "vim.hlsearch" = true;
+      "vim.visualstar" = true;
+      "vim.handleKeys" = {
+        "<C-p>" = false; # VSCodeVim intercepts Ctrl+P (regression v1.26+); let VS Code's Quick Open win
+      };
+      "editor.lineNumbers" = "relative";
+      "search.showLineNumbers" = true;
+      "explorer.confirmDragAndDrop" = false;
+      "explorer.confirmDelete" = false;
+      "workbench.colorCustomizations" = {
+        "editorBracketHighlight.foreground1" = "#003ad8";
+        "editorBracketHighlight.foreground2" = "#c58700";
+        "editorBracketHighlight.foreground3" = "#ea00ff";
+        "editorBracketHighlight.foreground4" = "#0bbe89";
+        "editorBracketHighlight.foreground5" = "#fffb00";
+        "editorBracketHighlight.foreground6" = "#21c700";
+        "editorBracketHighlight.unexpectedBracket.foreground" = "#ff0000";
+      };
+    };
+  };
+
+  # ---------------------------------------------------------------------------
+  # Sway — plain config file, not Nix attrsets
+  # ---------------------------------------------------------------------------
+  wayland.windowManager.sway = {
+    enable = true;
+    # config = null: full config lives in ./sway/config via extraConfig below.
+    # Setting null prevents home-manager from generating its own default
+    # config, which would spin up a second (i3status) bar alongside waybar.
+    config = null;
+    # The config references the wallpaper at ~/.local/share/backgrounds/...,
+    # which only exists AFTER activation — sway's build-time config check can't
+    # see it in the sandbox, so it fails. This is the documented course: skip
+    # the sandboxed check (sway still validates + applies the config at login).
+    checkConfig = false;
+    extraConfig = builtins.readFile ./sway/config + ''
+
+      # Auto-float dialogs and popups (Dolphin file transfers, file pickers, etc.)
+      for_window [window_role="pop-up"] floating enable
+      for_window [window_role="dialog"] floating enable
+    '';
+  };
+
+  # Scripts referenced from sway config
   xdg.configFile."sway/scripts/screenshot.sh" = {
     source = ./sway/scripts/screenshot.sh;
     executable = true;
   };
-  xdg.configFile."kanshi/config".source = ./kanshi/config;
+  xdg.configFile."sway/scripts/set-res.sh" = {
+    source = ./sway/scripts/set-res.sh;
+    executable = true;
+  };
+  xdg.configFile."sway/scripts/keys.sh" = {
+    source = ./sway/scripts/keys.sh;
+    executable = true;
+  };
+  xdg.configFile."sway/scripts/notif-history.sh" = {
+    source = ./sway/scripts/notif-history.sh;
+    executable = true;
+  };
+  xdg.configFile."sway/scripts/waybar-disk.sh" = {
+    source = ./sway/scripts/waybar-disk.sh;
+    executable = true;
+  };
+  xdg.configFile."sway/scripts/wlsunset-toggle.sh" = {
+    source = ./sway/scripts/wlsunset-toggle.sh;
+    executable = true;
+  };
+  xdg.configFile."sway/scripts/pavucontrol-toggle.sh" = {
+    source = ./sway/scripts/pavucontrol-toggle.sh;
+    executable = true;
+  };
+
+  # swayosd: 2x-scale OSD (volume/brightness popup) — doubles margin/progress/
+  # font/icon via the style.css swayosd auto-loads (utils.rs user_style_path).
+  xdg.configFile."swayosd/style.css".source = ./swayosd/style.css;
+
+  # Waybar config
   xdg.configFile."waybar/config.jsonc".source = ./waybar/config.jsonc;
   xdg.configFile."waybar/style.css".source = ./waybar/style.css;
 
-  xdg.configFile."ghostty/config".text = ''
-    theme = GruvboxDark
-    font-family = Cousine Nerd Font
-    font-size = 14
+  # Kanshi config
+  xdg.configFile."kanshi/config".source = ./kanshi/config;
+
+  # Global color-scheme + accent (amber) for GTK apps & portals.
+  dconf.settings = {
+    "org/gnome/desktop/interface" = {
+      color-scheme = "prefer-dark";
+      accent-color = "amber";
+      font-name = "Cousine Nerd Font 18";   # 4K@scale 1: double the default 11pt
+    };
+  };
+
+  # KDE palette+font (Dolphin): KF6 loads the active palette from a .colors
+  # SCHEME FILE ("kdeglobals [General] ColorScheme") - [Colors:*] overrides in
+  # kdeglobals were silently ignored (root cause of the still-white Dolphin).
+  # GruvboxDark.colors below is the scheme; Size via [General] font.
+  home.file.".config/kdeglobals".text = ''
+    [General]
+    font=Cousine Nerd Font,18,-1,5,50,0,0,0,0,0
+    ColorScheme=GruvboxDark
   '';
 
-  # imv: replacement for the old feh flags in my_scripts/img
-  # (feh --force-aliasing -g 1250x2000 --auto-zoom)
-  xdg.configFile."imv/config".text = ''
-    width = 1250
-    height = 2000
+  home.file.".local/share/color-schemes/GruvboxDark.colors".source =
+    ./color-schemes/GruvboxDark.colors;
+
+  # Kvantum: select the gruvbox theme for all non-KDE Qt apps (moonlight, vlc).
+  # The theme files come from pkgs.gruvbox-kvantum (systemPackages);
+  # kvantum.kvconfig just picks which variant.
+  home.file.".config/Kvantum/kvantum.kvconfig".text = ''
+    [General]
+    theme=Gruvbox-Dark-Brown
   '';
+
+  # Kvantum THEME FILES: symlink the store theme dir into the path Kvantum
+  # actually scans (~/.config/Kvantum/, highest priority). Kvantum ignores
+  # XDG_DATA_DIRS (nixpkgs#355277), so systemPackages alone is invisible to it
+  # - that's why the chrome renders default grey, not brown/green gruvbox.
+  #
+  # Override only the .kvconfig (colors), not the .svg (chrome shapes). The
+  # stock Gruvbox-Dark-Brown [GeneralColors] hard-codes base/alt.base = #282828
+  # (no zebra striping) and a translucent brown selection, so it overrides our
+  # KColorScheme and the UI melts together. Our patched kvconfig sets the same
+  # contrast hierarchy as GruvboxDark.colors (frame #282828 / view #3c3836 /
+  # zebra #504945 / aqua selection). The .svg stays a store symlink so we don't
+  # vendor a 212KB file into the repo.
+  home.file.".config/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.svg".source =
+    "${pkgs.gruvbox-kvantum}/share/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.svg";
+  home.file.".config/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.kvconfig".source =
+    ./kvantum/Gruvbox-Dark-Brown.kvconfig;
 }

@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, unstable, ... }:
 
 {
   # ---- Sway ------------------------------------------------------------------
@@ -15,11 +15,34 @@
     ];
   };
 
-  # ---- Login: greetd + tuigreet (lightweight, wayland-native) -----------------
-  services.greetd = {
+  # ---- Login: greetd + regreet (GTK4, Wayland-native, background image) -------
+  # ReGreet runs under Cage (a minimal Wayland compositor) as the greeter. The
+  # module writes /etc/greetd/regreet.toml from `programs.regreet.settings` and
+  # auto-injects the [GTK] section from the theme/font icon opts below.
+  # ReGreet ITSELF launches the user's session (sway) after auth — it reads the
+  # real desktop session from /usr/share/wayland-sessions, so sway must be a
+  # registered session (programs.sway.enable does that). Default user = hippo:
+  # it's the only enabled normal user, so it's the dropdown's entry.
+  programs.regreet = {
     enable = true;
-    settings.default_session.command = "${lib.getExe pkgs.tuigreet} --time --asterisks --cmd sway";
+    # Background = the gruvbox snow-hillside wallpaper. ReGreet runs as the
+    # "greeter" user, which can't read /home/hippo, so the image is installed
+    # to /etc/greetd (world-readable) via environment.etc below.
+    settings = {
+      background.path = "/etc/greetd/greeter.jpg";
+      background.fit = "Cover";
+      appearance.greeting_msg = "Welcome back";
+    };
+    theme.name = "gruvbox-dark";
+    theme.package = pkgs.gruvbox-dark-gtk;
+    font.name = "Cousine Nerd Font";
+    font.size = 18;
+    iconTheme.name = "Adwaita";           # already installed system-wide
+    cursorTheme.name = "Bibata-Modern-Classic";
+    cursorTheme.package = pkgs.bibata-cursors;
   };
+  # Greeter wallpaper + a clean regreet.css (greeter user owns /etc/greetd).
+  environment.etc."greetd/greeter.jpg".source = ../images/gruvbox-cabin-snow-hill.jpg;
 
   # swaylock authenticates via PAM (needed for unlock after $mod+Escape / suspend)
   security.pam.services.swaylock = {};
@@ -36,18 +59,22 @@
     type = "fcitx5";
     fcitx5 = {
       waylandFrontend = true;
-      addons = [ pkgs.fcitx5-chinese-addons ];
+      addons = [ pkgs.qt6Packages.fcitx5-chinese-addons ];
     };
   };
 
-  # ---- Qt dark theming (Dolphin FM + dolphin-emu, without Plasma) ------------
-  # A real QStyle via adwaita-qt6 - not a qt5ct/kvantum config-file hack.
-  # Vars set system-wide so they reach the session however sway gets launched.
-  # Covers both dolphins ("not burn my eyes", per your old bashrc).
-  environment.systemPackages = [ pkgs.adwaita-qt6 ];
-  environment.variables.QT_STYLE_OVERRIDE = "adwaita-dark";
-  # where Qt finds the style plugin (systemPackages merge their lib/ here)
-  environment.variables.QT_PLUGIN_PATH = [ "/run/current-system/sw/lib/qt-6/plugins" ];
+  # ---- GTK apps: gruvbox ---------------------------------------------------
+  # Qt apps are themed system-wide by the `qt` module (configuration.nix):
+  # kvantum Gruvbox-Dark for Qt5+Qt6 - one style, no per-app hacks.
+  # Here we only handle the GTK side.
+  environment.systemPackages = [
+    pkgs.adwaita-icon-theme   # GTK/tray icons (fcitx's tray item was broken - no Adwaita theme present)
+    pkgs.gruvbox-dark-gtk     # GTK apps (blueman, nm-applet, portals) in gruvbox
+    pkgs.gruvbox-kvantum      # Kvantum Qt theme (Gruvbox-Dark-Brown) for non-KDE Qt apps
+  ];
+  # GTK3/4 apps (blueman, nm-applet, portals): force the gruvbox theme.
+  # dconf color-scheme=prefer-dark (home) also set, belt and suspenders.
+  environment.variables.GTK_THEME = "gruvbox-dark";
 
   # ---- Portals (screenshare/file dialogs under Wayland) ----------------------
   xdg.portal = {
@@ -58,9 +85,12 @@
 
   # ---- Fonts ------------------------------------------------------------------
   fonts.packages = with pkgs; [
-    nerd-fonts.cousine            # Cousine Nerd Font (your terminal/editor font)
+    # Cousine Nerd Font (terminal/editor font). Pinned to nixos-unstable (3.5.0):
+    # the 26.05 branch ships 3.4.0, whose Material Design Icons block stops at
+    # \uEFCE — so \uEFCF (a volume glyph) is missing. 3.5.0 fixed the block.
+    unstable.nerd-fonts.cousine
     noto-fonts-cjk-sans           # required for Pinyin IME candidate window / hanzi
-    noto-fonts-emoji
+    noto-fonts-color-emoji
     dejavu_fonts
     liberation_ttf
   ];

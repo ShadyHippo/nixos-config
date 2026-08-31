@@ -9,7 +9,7 @@ set -euo pipefail
 
 case "${1:-}" in
     snip)
-        grim -g "$(slurp -d)" -
+        grim -g "$(slurp -d -x -c '#ff2b6dff')" -
         ;;
     window)
         geo=$(swaymsg -t get_tree | jq -r '

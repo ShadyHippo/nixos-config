@@ -1,0 +1,6 @@
+# copy to BOTH primary (middle-click) AND system clipboard (Ctrl+Shift+V).
+# `true` only fills the primary selection on Linux - docs confirmed.
+theme = "Gruvbox Dark"
+font-family = Cousine Nerd Font
+font-size = 18
+copy-on-select = clipboard

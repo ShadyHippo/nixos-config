@@ -1,0 +1,49 @@
+diff --git a/main.c b/main.c
+--- a/main.c
++++ b/main.c
+@@ -142,22 +142,7 @@
+ 
+ 	seat_set_outputs_dirty(seat);
+ 
+-	if (output->state->cursor_shape_manager) {
+-		struct wp_cursor_shape_device_v1 *device =
+-			wp_cursor_shape_manager_v1_get_pointer(
+-				output->state->cursor_shape_manager, wl_pointer);
+-		wp_cursor_shape_device_v1_set_shape(device, serial,
+-			WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR);
+-		wp_cursor_shape_device_v1_destroy(device);
+-	} else {
+-		wl_surface_set_buffer_scale(seat->cursor_surface, output->scale);
+-		wl_surface_attach(seat->cursor_surface,
+-			wl_cursor_image_get_buffer(output->cursor_image), 0, 0);
+-		wl_pointer_set_cursor(wl_pointer, serial, seat->cursor_surface,
+-			output->cursor_image->hotspot_x / output->scale,
+-			output->cursor_image->hotspot_y / output->scale);
+-		wl_surface_commit(seat->cursor_surface);
+-	}
++	wl_pointer_set_cursor(wl_pointer, serial, NULL, 0, 0);
+ }
+ 
+ static void pointer_handle_leave(void *data, struct wl_pointer *wl_pointer,
+diff --git a/render.c b/render.c
+--- a/render.c
++++ b/render.c
+@@ -78,14 +78,14 @@
+ 			cairo_select_font_face(cairo, state->font_family,
+ 					       CAIRO_FONT_SLANT_NORMAL,
+ 					       CAIRO_FONT_WEIGHT_NORMAL);
+-			cairo_set_font_size(cairo, 14);
++			cairo_set_font_size(cairo, 48);
+ 			set_source_u32(cairo, state->colors.border);
+ 			// buffer of 12 can hold selections up to 99999x99999
+ 			char dimensions[12];
+ 			snprintf(dimensions, sizeof(dimensions), "%ix%i",
+ 				 sel_box->width, sel_box->height);
+-			cairo_move_to(cairo, sel_box->x + sel_box->width + 10,
+-				      sel_box->y + sel_box->height + 20);
++			cairo_move_to(cairo, sel_box->x + sel_box->width + 0,
++				      sel_box->y + sel_box->height + 40);
+ 			cairo_show_text(cairo, dimensions);
+ 		}
+ 	}
+}

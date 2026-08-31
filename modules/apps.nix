@@ -10,9 +10,19 @@
     # playback & music tools
     mpv vlc kid3 yt-dlp
 
+    # office — spreadsheet & word processing (wish list: don't get caught without)
+    libreoffice
+
     # creative
     gimp
-    cura-appimage          # upstream went AppImage-only; this is the packaged form
+    # Cura: upstream went AppImage-only; this is the packaged form. Wrapped
+    # with QT_SCALE_FACTOR=1.5 — Qt6 app, on the 4K panel at sway scale 1 the
+    # UI is too small. Scoped to Cura only; other Qt apps keep scale 1.0.
+    (cura-appimage.overrideAttrs (old: {
+      postFixup = (old.postFixup or "") + ''
+        wrapProgram $out/bin/cura --set QT_SCALE_FACTOR 1.5
+      '';
+    }))
 
     # disks (GNOME left behind)
     gparted smartmontools nvme-cli gdu
@@ -23,6 +33,10 @@
 
     # dev CLI
     zellij gitui fzf ripgrep parallel pv
+
+    # python runtime (basic, stdlib only). For project work, make a venv:
+    #   python3 -m venv .venv && source .venv/bin/activate
+    python3
 
     # media conversion — my_scripts transcode stack
     # NOTE: stock nixpkgs ffmpeg has NO HEIC demuxer (no libheif wired in),

@@ -29,7 +29,6 @@
     LC_TIME = "en_US.UTF-8";
   };
 
-  networking.hostName = "xps15";
   networking.networkmanager.enable = true;
 
   services.openssh = {
@@ -56,7 +55,6 @@
     isNormalUser = true;
     description = "hippo";
     extraGroups = [ "wheel" "networkmanager" "audio" "video" "input" "docker" "scanner" "lp" ];
-    initialPassword = "changeme";   # CHANGE THIS: passwd, or replace with initialHashedPassword from mkpasswd -m sha-512
     shell = pkgs.bash;
   };
 
@@ -64,8 +62,9 @@
     git vim wget curl htop btop
     pciutils usbutils lshw        # hardware poking
     powertop                      # diagnostics ONLY - TLP does the writing (your rule)
+    lm_sensors                    # `sensors` - real temp/fan readings (btop + debugging)
     brightnessctl                 # screen backlight (bound to XF86 keys in sway)
-    grim slurp                    # screenshots
+    grim                          # screenshots (slurp lives in configuration.nix - overridden there with the -x crosshair/cursor-hide patches)
     wl-clipboard                  # wayland copy/paste
     pavucontrol                   # per-app volume
     blueman                       # bluetooth pairing UI

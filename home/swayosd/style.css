@@ -1,0 +1,70 @@
+/* swayosd — 2x scale, gruvbox */
+/* Loaded from ~/.config/swayosd/style.css (utils.rs user_style_path()).
+   Doubles the stock style: container margin 16->32, progress min-height
+   6->12, segment margin 8->16, and bumps label font to 40px + icon to 64.
+   The icon uses GtkImage::set_pixel_size(32) in code, so -gtk-icon-size is
+   a best-effort; if the icon doesn't grow, ICON_SIZE must be bumped in the
+   Rust source (src/server/osd_window.rs). */
+window#osd {
+  border-radius: 999px;
+  border: none;
+  background: #282828cc;
+  /* 2x the window footprint (default was 250 wide) */
+  min-width: 500px;
+}
+
+window#osd #container {
+  /* 2x padding (was 16, then 32) */
+  margin: 64px;
+}
+
+window#osd image,
+window#osd label {
+  color: #ebdbb2;
+}
+
+window#osd label {
+  font-size: 40px;
+}
+
+window#osd image {
+  -gtk-icon-size: 64px;
+}
+
+window#osd progressbar:disabled,
+window#osd image:disabled {
+  opacity: 0.5;
+}
+
+window#osd progressbar,
+window#osd segmentedprogress {
+  /* 2x bar thickness (was 6, then 12) */
+  min-height: 24px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+}
+
+window#osd trough,
+window#osd segment {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: #ebdbb280;
+}
+
+window#osd progress,
+window#osd segment.active {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: #ebdbb2;
+}
+
+window#osd segment {
+  margin-left: 32px;
+}
+
+window#osd segment:first-child {
+  margin-left: 0;
+}

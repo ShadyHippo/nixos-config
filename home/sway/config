@@ -10,26 +10,53 @@ set $alt Mod1
 set $term ghostty
 set $menu fuzzel
 
-font Cousine Nerd Font 14
+# [mine]
+font Cousine Nerd Font 22
 
-focus_follows_mouse no                  # [mine] i3 behavior
-seat * hide_cursor 3000                 # [mine]
+# [mine] i3 behavior
+focus_follows_mouse yes
+# [mine] never auto-hide the cursor (hiding after 3s idle was killing it while typing)
+seat * hide_cursor 0
+# [mine] compositor-level cursor: theme + size (env XCURSOR_SIZE only reaches X11 apps)
+seat * xcursor_theme Bibata-Modern-Classic 64
 
 # ---------------------------------------------------------------------------
 # Outputs
 # ---------------------------------------------------------------------------
-# When you pick a wallpaper, drop it at ~/Pictures/wallpaper.jpg and swap the
-# next line for:   output * bg ~/Pictures/wallpaper.jpg fill
-output * bg #282828 solid_color         # [mine]
+# Wallpaper (gruvbox astronaut, 4K) symlinked from home-manager into a stable
+# ~/.local/share/backgrounds path. Sway's `output bg` needs an absolute path.
+# [mine]
+output eDP-1 bg /home/hippo/.local/share/backgrounds/gruvbox-astronaut-4k.png fill
+# [mine] lock scale: sway auto-detects 2.0 for HiDPI panels, violating scale 1.
+output * scale 1
 
 # ---------------------------------------------------------------------------
 # Input
 # ---------------------------------------------------------------------------
 input type:touchpad {
-    dwt disabled                        # [mine] palm-rejection jank, historic
-    natural_scroll enabled              # [mine] drag-the-content scrolling
+    # [mine] palm-rejection jank, historic
+    dwt disabled
+    # [mine] drag-the-content scrolling
+    natural_scroll enabled
     tap enabled
+    # [mine] 2 fingers = right-click, 3 fingers = middle-click (libinput
+    # lrm = 1:L 2:R 3:M; lmr would make 2 fingers = middle, 3 = right)
+    tap_button_map lrm
+    # [mine] click_method none: kill the clickpad corner zones (button_areas
+    # = default maps bottom/right corner single-clicks to right/middle). This
+    # way a ONE-finger PRESS is always left everywhere; right/middle comes from
+    # 2/3-finger taps above instead. (libinput has no "2-finger double-click"
+    # mapping - taps are single L/R/M button presses only.)
+    click_method none
+    # [mine] 4K speed (~2x default 0.0). sway 1.12 renamed accel_speed -> pointer_accel
+    pointer_accel 0.6
 }
+
+# [mine] 4K speed for mice / external pointers. FLAT profile = no acceleration
+# curve, pure constant speed (~2x default 0.0, range -1..1). One setting per line!
+# sway 1.12 renamed accel_speed -> pointer_accel
+input type:pointer accel_profile flat
+input type:pointer pointer_accel 0.6
 
 # ---------------------------------------------------------------------------
 # Appearance — gruvbox [mine], Regolith-style pixel borders
@@ -37,6 +64,8 @@ input type:touchpad {
 default_border pixel 2
 default_floating_border pixel 2
 titlebar_padding 4
+# [mine] hold $mod to grab/drag a floating window from anywhere on it
+floating_modifier $mod
 
 client.focused          #83a598 #83a598 #282828
 client.focused_inactive #665c54 #665c54 #ebdbb2
@@ -49,7 +78,11 @@ client.urgent           #cc241d #cc241d #ebdbb2
 exec fcitx5 -d --replace                # Pinyin ready at login (Ctrl+Super+A)
 exec kanshi                             # monitor hotplug profiles
 exec mako                               # notifications
-exec waybar                             # status bar
+exec swayosd-server                     # volume/brightness OSD popups
+exec nm-applet --indicator              # wifi tray menu (NetworkManager)
+exec blueman-applet                     # bluetooth tray UI (blueman)
+exec polkit-gnome-authentication-agent-1 # root auth prompts (replaces default)
+
 # Locks ONLY when the machine actually sleeps (e.g. lid close). No idle timers.
 exec swayidle -w before-sleep 'swaylock -f -c 282828'
 
@@ -68,10 +101,26 @@ bindsym $mod+F10 exec ~/.config/sway/scripts/set-res.sh 720     # native play
 bindsym $mod+F11 exec ~/.config/sway/scripts/set-res.sh 1080    # streaming
 bindsym $mod+F12 exec ~/.config/sway/scripts/set-res.sh 4k      # desktop
 
+# Brightness/volume OSD via swayosd (server autostarted above) [mine]
+bindsym XF86MonBrightnessDown exec swayosd-client --brightness lower
+bindsym XF86MonBrightnessUp exec swayosd-client --brightness raise
+bindsym XF86AudioLowerVolume exec swayosd-client --output-volume lower
+bindsym XF86AudioRaiseVolume exec swayosd-client --output-volume raise
+bindsym XF86AudioMute exec swayosd-client --output-volume mute-toggle
+
+# Media keys (playerctl) [mine]
+bindsym XF86AudioPlay exec playerctl play-pause
+bindsym XF86AudioNext exec playerctl next
+bindsym XF86AudioPrev exec playerctl previous
+
+# Nightlight toggle (wlsunset warm 4000K, hotkey-only, no timer) [mine]
+bindsym $mod+Shift+u exec ~/.config/sway/scripts/wlsunset-toggle.sh
+
 # ---------------------------------------------------------------------------
 # Core bindings — STOCK SWAY DEFAULTS from here down (except tags)
 # ---------------------------------------------------------------------------
 bindsym $mod+Return exec $term
+bindsym $mod+Shift+Return exec zen --new-window                  # default browser, new window (opens Zen new-tab page, visible with icon)
 bindsym $mod+d exec $menu
 bindsym $mod+Shift+q kill
 
@@ -134,17 +183,28 @@ bindsym $mod+Shift+minus scratchpad show
 
 bindsym $mod+Shift+c reload
 
+# Keybind help dialog (searchable list of shortcuts, fuzzel --dmenu) [mine]
+bindsym $mod+F1 exec ~/.config/sway/scripts/keys.sh
+
+# Notification history (fuzzel --dmenu viewer of mako's history buffer) [mine]
+bindsym $mod+n exec ~/.config/sway/scripts/notif-history.sh
+
+# Global EN/Pinyin toggle — works in EVERY app (sway intercepts before the
+# app's IME protocol, so no VS Code/Electron blind spot). [mine]
+bindsym $mod+Shift+a exec fcitx5-remote -t
+bindsym Ctrl+Super+a exec fcitx5-remote -t
+
 set $resize_mode Resize
 mode $resize_mode {
     # same vim directions as focus: pull edges around
-    bindsym h resize shrink width 10 px
-    bindsym j resize grow height 10 px
-    bindsym k resize shrink height 10 px
-    bindsym l resize grow width 10 px
-    bindsym Left resize shrink width 10 px
-    bindsym Down resize shrink height 10 px
-    bindsym Up resize grow height 10 px
-    bindsym Right resize grow width 10 px
+    bindsym h resize shrink width 30 px
+    bindsym j resize shrink height 30 px
+    bindsym k resize grow height 30 px
+    bindsym l resize grow width 30 px
+    bindsym Left resize shrink width 30 px
+    bindsym Down resize shrink height 30 px
+    bindsym Up resize grow height 30 px
+    bindsym Right resize grow width 30 px
     bindsym Escape mode default
     bindsym Return mode default
 }
@@ -157,15 +217,31 @@ bindsym $mod+Shift+e exec swaynag -t warning -m 'You pressed the exit shortcut. 
 # ---------------------------------------------------------------------------
 for_window [app_id="(?i)signal"] move to workspace number 9
 for_window [class="(?i)signal"] move to workspace number 9
+for_window [app_id="(?i)discord"] move to workspace number 9
+for_window [class="(?i)discord"] move to workspace number 9
 for_window [app_id="(?i)slack"] move to workspace number 8
 for_window [class="(?i)slack"] move to workspace number 8
 for_window [title="Spacers"] floating enable
 for_window [app_id="(?i)qalculate"] floating enable
 for_window [title="Qalculate!"] floating enable
+# pavucontrol: float it (don't tile) and anchor top-left at the volume icon
+# (X=2700, Y=1700 on the 4K panel). Fixed anchor - sway can't read the bar
+# module's X, so if the volume icon moves, update these numbers.
+for_window [app_id="(?i)pavucontrol"] floating enable
+for_window [class="(?i)pavucontrol"] floating enable
+for_window [app_id="(?i)pavucontrol"] move position 2700 1700
+for_window [class="(?i)pavucontrol"] move position 2700 1700
+# Dolphin (KDE, native Wayland): its confirm/progress dialogs (Delete, Copying,
+# Moving, Extracting, Properties...) are xdg_toplevel windows just like the main
+# window - Wayland exposes no window role/type, so the window_role rules above
+# can't catch them. Match by title keywords, scoped to the Dolphin app_id.
+for_window [app_id="(?i)org\.kde\.dolphin" title="(?i)(delete|trash|copy(ing)?|mov(e|ing)|renam|progress|extract|overwrit|skip|conflict|error|propert(ies|y)|open with|about)"] floating enable
 
 # ---------------------------------------------------------------------------
 # Bar
 # ---------------------------------------------------------------------------
 bar {
-    swaybar_command waybar              # [mine]
+    # [mine]
+    position bottom
+    swaybar_command waybar
 }

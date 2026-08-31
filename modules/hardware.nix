@@ -1,30 +1,34 @@
 { pkgs, ... }:
 
 {
-  # ---- NVIDIA GTX 1050 Ti: permanently powered down -------------------------
+  # ---- NVIDIA GTX 1050 Ti: permanently disabled (no driver, no USE) ----------
   # Per ArchWiki (XPS_15_9570 + PRIME): Pascal cards can't do fine-grained RTD3
-  # power management with the proprietary driver, and the nvidia module causes
-  # suspend lockups on this model. The correct move is no driver at all:
-  # blacklist everything (base.nix) and let PCIe runtime PM park the card in
-  # D3 (~0W). Verify after install:
-  #   cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status   -> suspended
+  # with the proprietary driver, and the nvidia module causes suspend lockups
+  # on this model. So: no driver at all (blacklisted + install /bin/false in
+  # base.nix) and let PCIe runtime PM park the card.
+  #
+  # HONEST POWER STATE (verified live 2026-08-31): the card is D3hot, NOT
+  # D3cold. `0000:01:00.0/power/runtime_status` = suspended and the runtime
+  # counters tick up stably, BUT its config space still reads the real device
+  # ID (10de:1c8d) instead of all-0xFF — the signature of D3hot. D3hot still
+  # draws the 3.3V aux rail (order ~0.1–0.5 W), so it is NOT truly zero-power.
+  # It is only D3hot because the upstream bridge is Intel 8086:1901, which trips
+  # the kernel `quirk_broken_nv_runpm` fix: Pascal GPUs behind this bridge can't
+  # be guaranteed to return from D3cold→D0 (the device vanishes from the bus).
+  # Forcing D3cold (acpi_rev_override / pcie_port_pm=on) would risk that resume
+  # failure. Leaving D3hot is the safe, correct choice. The user must know:
+  # "fully disabled" = yes; "zero-power" = not physically achievable here.
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{power/control}="auto"
   '';
 
   # ---- Laptop power management ----------------------------------------------
-  # TLP (not power-profiles-daemon; they conflict). Defaults are sane.
-  services.tlp = {
-    enable = true;
-    settings = {
-      CPU_ENERGY_PERF_POLICY_ON_AC = "performance";
-      CPU_ENERGY_PERF_POLICY_ON_BAT = "power";
-      # Charge thresholds extend battery lifespan (80-85%).
-      START_CHARGE_THRESH_BAT0 = 80;
-      STOP_CHARGE_THRESH_BAT0 = 85;
-    };
-  };
-  services.power-profiles-daemon.enable = false;  # conflicts with TLP
+  # TLP dropped (2026 Q3): kernel 6.x + intel_pstate already handles CPU freq,
+  # TLP's raw tunables are largely redundant, and power-profiles-daemon is
+  # GNOME/KDE-oriented (not sway). We rely on the intel_pstate powersave
+  # governor (active) + thermald below. Battery charges to 100%: the 85/80 EC
+  # cap (written by the old TLP setup) was lifted by writing the EC directly;
+  # it persists in hardware and nothing in this config writes it back.
 
   # This machine throttles badly under load (per ArchWiki); thermald helps.
   services.thermald.enable = true;
@@ -87,8 +91,24 @@
   };
 
   # ---- GPU acceleration (Intel UHD 630 is the only active GPU) ---------------
+  # `hardware.graphics.enable` already installs pkgs.mesa, which ships the Intel
+  # "ANV" Vulkan driver by default (vulkanDrivers includes "intel"), so
+  # Chromium/Firefox/WebGL get hardware Vulkan with nothing extra to add. There
+  # is NO separate `vulkan-intel` package on this nixpkgs branch; it's part of
+  # mesa. We deliberately DO NOT add libva-intel-driver (legacy i965): on the 8th
+  # gen Coffeelake the modern intel-media-driver (iHD) fully covers the UHD 630.
   hardware.graphics = {
     enable = true;
     enable32Bit = true;   # 32-bit Mesa for Steam games
+    extraPackages = [
+      pkgs.intel-media-driver   # VAAPI (iHD) — correct for UHD 630
+    ];
   };
+
+  # System packages. VAAPI/Vulkan drivers go through extraPackages into
+  # /run/opengl-driver (NOT on PATH), so CLI tools live here instead.
+  environment.systemPackages = [
+    pkgs.libva-utils      # `vainfo` — confirm VAAPI decode is wired up
+    pkgs.intel-gpu-tools  # `intel_gpu_top` — live iGPU utilisation/freq
+  ];
 }

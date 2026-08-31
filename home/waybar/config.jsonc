@@ -1,17 +1,16 @@
 // waybar — gruvbox, replaces i3xrocks
 {
     "layer": "top",
-    "position": "top",
-    "height": 30,
+    "position": "bottom",
+    "height": 44,
     "margin-top": 0,
 
     "modules-left": ["sway/workspaces", "sway/mode"],
     "modules-center": ["sway/window"],
     "modules-right": [
         "pulseaudio",
-        "bluetooth",
-        "cpu",
         "memory",
+        "custom/disk",
         "temperature",
         "battery",
         "tray",
@@ -33,28 +32,56 @@
 
     "clock": {
         // day month time - no year
-        "format": "{:%d %b %H:%M}",
+        "format": " {:%d %b %H:%M}",
         "tooltip-format": "<big>{:%A %d %B %Y}</big>\n<tt><small>{calendar}</small></tt>"
     },
 
-    "cpu": {
-        "format": " {usage}%",
-        "tooltip": false
+    // Volume: native pulseaudio module (speaks pipewire-pulse, so still
+    // PipeWire underneath). Icon set (all in Cousine Nerd Font 3.5.0, all BMP):
+    //   muted \uEEE8, then levels up: \uF026 \uF027 \uEFCF \uF028.
+    // format-icons = indexed by volume (low -> high); format-muted = muted icon.
+    // \uEFCF only exists in Nerd Fonts 3.5.0 (we pin nixos-unstable); 3.4.0's
+    // MDI block stopped at \uEFCE, which is why it was a box before.
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": "\uEEE8 {volume}%",
+        "format-icons": ["\uF026", "\uF027", "\uEFCF", "\uF028"],
+        "on-click": "~/.config/sway/scripts/pavucontrol-toggle.sh",
+        "on-scroll-up": "swayosd-client --output-volume raise",
+        "on-scroll-down": "swayosd-client --output-volume lower"
     },
 
+    // RAM: computer-chip icon; amber >50, red >80.
     "memory": {
-        "format": " {}%",
-        "tooltip": false
+        "format": " \uF2DB {}%",
+        "states": {"warning": 50, "critical": 80},
+        "tooltip-format": "RAM: {percentage}% used"
     },
 
+    // CPU temp: point straight at the coretemp package sensor. Waybar 0.15
+    // ignores `hwmon-by-name` (falls back to thermal_zone0 = pch_cannonlake),
+    // which is why it read ~42C. coretemp temp1_input == x86_pkg_temp.
+    // amber >60, red >80.
     "temperature": {
-        "thermal-zone": 0,
-        "hwmon-path-abs": ["/sys/devices/virtual/thermal/thermal_zone*"],
-        "input-filename": "temp",
-        "adaptive-file-selection": true,
-        "format": "{temperatureC}°C",
-        "critical-threshold": 90,
-        "format-critical": " {temperatureC}°C"
+        "hwmon-path": "/sys/devices/platform/coretemp.0/hwmon/hwmon6/temp1_input",
+        "format": " \uF2C9 {temperatureC}°C",
+        "warning-threshold": 60,
+        "critical-threshold": 80,
+        "format-critical": " \uF2C9 {temperatureC}°C",
+        "tooltip-format": "CPU temp: {temperatureC}°C"
+    },
+
+    // Disk: custom module so it matches Dolphin's user-available %. Waybar's
+    // built-in disk module counts from root-reserved blocks (reads ~13% here
+    // vs Dolphin's ~19%). The script computes (total - avail)/total. It also
+    // emits warning/critical classes for amber/red (>=70 / >=80).
+    "custom/disk": {
+        "exec": "~/.config/sway/scripts/waybar-disk.sh",
+        // JSON output: without return-type=json Waybar uses parseOutputRaw()
+        // and prints the raw JSON string. This enables parseOutputJson().
+        "return-type": "json",
+        "interval": 30,
+        "format": "{text}"
     },
 
     "battery": {
@@ -63,28 +90,13 @@
             "critical": 10
         },
         "format": "{icon} {capacity}%",
-        "format-charging": " {capacity}%",
-        "format-icons": ["", "", "", "", ""],
+        "format-charging": " \uF0E7 {capacity}%",
+        "format-icons": ["\uF244", "\uF243", "\uF242", "\uF241", "\uF240"],
         "interval": 30
     },
 
-    "bluetooth": {
-        "format": " {status}",
-        "format-disabled": "",
-        "format-connected": " {num_connections}",
-        "tooltip-format": "{controller_alias}\t{controller_address}",
-        "tooltip-format-connected": "{device_alias}\t{device_address}"
-    },
-
-    "pulseaudio": {
-        "format": "{icon} {volume}%",
-        "format-muted": " muted",
-        "format-icons": {"default": ["", ""]},
-        "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle"
-    },
-
     "tray": {
-        "icon-size": 18,
-        "spacing": 8
+        "icon-size": 28,
+        "spacing": 10
     }
 }
