@@ -148,7 +148,7 @@ bindsym $mod+semicolon splith
 bindsym $mod+v splitv
 bindsym $mod+f fullscreen toggle
 bindsym $mod+a focus parent
-bindsym $mod+b exec ~/.config/sway/scripts/blueman-toggle.sh  # bluetooth manager UI (toggle like pavucontrol)
+bindsym $mod+b exec blueman-manager  # bluetooth manager UI (2x via package wrapper; no toggle-close hack)
 
 bindsym $mod+s layout stacking
 bindsym $mod+w layout tabbed
@@ -234,9 +234,7 @@ for_window [app_id="(?i)pavucontrol"] move position 2700 1700
 for_window [class="(?i)pavucontrol"] move position 2700 1700
 for_window [app_id="(?i)blueman-manager"] floating enable
 for_window [class="(?i)blueman-manager"] floating enable
-for_window [app_id="(?i)blueman-manager"] resize set 500 850   # GDK_SCALE=2 renders 2x -> 1000x1700 on screen
-for_window [class="(?i)blueman-manager"] resize set 500 850
-for_window [app_id="(?i)blueman-manager"] move position 2800 80   # top-right; 2800+1000 <= 3840, 80+1700 <= 2160
+for_window [app_id="(?i)blueman-manager"] move position 2800 80   # top-right; ×2 → ~1000×1700: 2800+1000 ≤ 3840, 80+1700 ≤ 2160
 for_window [class="(?i)blueman-manager"] move position 2800 80
 # Dolphin (KDE, native Wayland): its confirm/progress dialogs (Delete, Copying,
 # Moving, Extracting, Properties...) are xdg_toplevel windows just like the main

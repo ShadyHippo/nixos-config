@@ -71,13 +71,13 @@ in
     grim                          # screenshots (slurp lives in configuration.nix - overridden there with the -x crosshair/cursor-hide patches)
     wl-clipboard                  # wayland copy/paste
     pavucontrol                   # per-app volume
-    # blueman: 2x-scaled like the Cura wrapper — blueman is GTK3 so QT_SCALE_FACTOR
-    # ignores it; GDK_SCALE=2 doubles the whole UI (buttons included). Wrapped at
-    # package level so BOTH launch paths scale: $mod+b toggle AND the tray icon's
-    # "Bluetooth Manager" menu item.
+    # blueman: 2x-scaled via GDK_SCALE — blueman is GTK3 so QT_SCALE_FACTOR
+    # ignores it. Wrapped at package level so BOTH launch paths scale: $mod+b and
+    # the tray icon's "Bluetooth Manager" menu item. GDK_BACKEND=x11 (XWayland) is
+    # required: GTK3's Wayland backend ignores GDK_SCALE (verified).
     (blueman.overrideAttrs (old: {
       postFixup = (old.postFixup or "") + ''
-        wrapProgram $out/bin/blueman-manager --set GDK_SCALE ${toString sizing.display.gtk.blueman}
+        wrapProgram $out/bin/blueman-manager --set GDK_BACKEND x11 --set GDK_SCALE ${toString sizing.display.gtk.blueman}
       '';
     }))
     joycond                       # Joy-Con pair daemon (combines L+R into one pad)

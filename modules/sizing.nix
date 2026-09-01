@@ -28,7 +28,11 @@
     scale  = 1;               # sway output scale — 1 on the 4K panel
     qt     = 1.5;             # global QT_SCALE_FACTOR (Dolphin, moonlight, VLC…). Was 2.0 → too large
     gtk    = {
-      blueman = 2;            # GDK_SCALE per-GTK-app — GTK only accepts INTEGERS
+      # GDK_SCALE per-GTK-app (integers only). IMPORTANT: GTK3's Wayland
+      # backend IGNORES GDK_SCALE (verified: same window size either way) —
+      # both apps are forced onto XWayland via GDK_BACKEND=x11, where it works.
+      blueman     = 2;            # via blueman package wrapper (both launch paths)
+      pavucontrol = 2;            # via pavucontrol-toggle.sh launch
     };
     cursor = {
       seat = 64;              # compositor-level cursor px (sway seat, Wayland apps)
@@ -39,7 +43,7 @@
 
   # ── FLOATING POPUP WINDOWS (anchored top-right under the bar) ──
   popups = {
-    pavucontrol = { x = 2700; y = 1700; };              # below the volume icon
+    pavucontrol = { x = 2250; y = 1000; };              # ×2 → ~1536×808 window: 2250+1536≤3840, 1000+838≤2160
     blueman     = { w = 500; h = 850; x = 2800; y = 80; };  # below tray icons; renders at ×display.gtk.blueman → 1000×1700 px
   };
 

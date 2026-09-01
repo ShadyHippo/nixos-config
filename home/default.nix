@@ -334,7 +334,6 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
         # -- floating popups (sizing.nix -> popups) --
         "move position 2700 1700"
         "move position 2800 80"
-        "resize set 500 850"
         # -- colors (theming.nix -> palette) --
         "#83a598"
         "#282828"
@@ -350,7 +349,6 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
         "titlebar_padding ${toString sizing.titlebarPadding}"
         "move position ${toString pavu.x} ${toString pavu.y}"
         "move position ${toString blu.x} ${toString blu.y}"
-        "resize set ${toString blu.w} ${toString blu.h}"
         pal.blue pal.bg pal.fg pal.bgDim pal.bgAlt pal.fgDim pal.red
       ]
       (builtins.readFile ./sway/config) + ''
@@ -387,12 +385,11 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     executable = true;
   };
   xdg.configFile."sway/scripts/pavucontrol-toggle.sh" = {
-    source = ./sway/scripts/pavucontrol-toggle.sh;
     executable = true;
-  };
-  xdg.configFile."sway/scripts/blueman-toggle.sh" = {
-    source = ./sway/scripts/blueman-toggle.sh;
-    executable = true;
+    text = builtins.replaceStrings
+      [ "@PAV_SCALE@" ]
+      [ (toString sizing.display.gtk.pavucontrol) ]
+      (builtins.readFile ./sway/scripts/pavucontrol-toggle.sh);
   };
 
   # swayosd: 2x-scale OSD (volume/brightness popup) — doubles margin/progress/
@@ -423,14 +420,28 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
   # Kanshi config
   xdg.configFile."kanshi/config".source = ./kanshi/config;
 
-  # Global color-scheme + accent (amber) for GTK apps & portals.
+  # Global color-scheme + accent (amber) for GTK apps & portals. Cursor theme
+  # + size are set HERE (dconf/gsettings) AND in gtk-3.0/settings.ini below,
+  # because GTK3 in waybar renders its own hover cursor via settings and was
+  # falling back to the tiny black X11 default (it doesn't honor XCURSOR_THEME).
   dconf.settings = {
     "org/gnome/desktop/interface" = {
       color-scheme = "prefer-dark";
       accent-color = "amber";
       font-name = "Cousine Nerd Font 18";   # 4K@scale 1: double the default 11pt
+      cursor-theme = theme.cursorTheme;
+      cursor-size = sizing.display.cursor.seat;
     };
   };
+
+  xdg.configFile."gtk-3.0/settings.ini".text = ''
+    [Settings]
+    gtk-theme-name=${theme.gtkTheme}
+    gtk-icon-theme-name=Adwaita
+    gtk-cursor-theme-name=${theme.cursorTheme}
+    gtk-cursor-theme-size=${toString sizing.display.cursor.seat}
+    gtk-application-prefer-dark-theme=1
+  '';
 
   # KDE palette+font (Dolphin): KF6 loads the active palette from a .colors
   # SCHEME FILE ("kdeglobals [General] ColorScheme") - [Colors:*] overrides in

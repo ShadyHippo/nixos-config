@@ -10,8 +10,12 @@
 # So match on the process-name form `.pavucontrol-wr`, which is stable. Using
 # `pavucontrol` (no -f) would also self-match other processes, and `-f pavucontrol`
 # matches this script's own argv too. `.pavucontrol-wr` is unambiguous.
+#
+# X11 (XWayland) backend is REQUIRED for scaling: GTK3's Wayland backend ignores
+# GDK_SCALE (verified — identical window size on native Wayland), while the X11
+# backend honors it. @PAV_SCALE@ comes from modules/sizing.nix (display.gtk.pavucontrol).
 if pgrep -x '.pavucontrol-wr' >/dev/null 2>&1; then
   pkill -x '.pavucontrol-wr'
 else
-  pavucontrol >/dev/null 2>&1 &
+  GDK_BACKEND=x11 GDK_SCALE=@PAV_SCALE@ pavucontrol >/dev/null 2>&1 &
 fi
