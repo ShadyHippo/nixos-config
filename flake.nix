@@ -43,6 +43,7 @@
           ./modules/dev.nix
           ./modules/gaming.nix
           ./modules/hardware.nix
+          ./modules/printing.nix
 	  home-manager.nixosModules.home-manager
 	  {
             home-manager.useGlobalPkgs = true;
