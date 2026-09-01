@@ -21,6 +21,20 @@ disabled).
 - **Hardware** — keyd caps→escape, TLP power, Intel Wi-Fi/BT firmware,
   `hid_nintendo` driver, iGPU-only rendering
 
+## Packaging: NixOS vs mise — which goes where?
+
+Two package managers live here, and the split is deliberate:
+
+| Concern | System |
+|---|---|
+| **The desktop itself** — kernel, services, sway, theming, desktop + system packages | **NixOS** (`modules/*`, `configuration.nix`) — declared once, rebuilds atomically |
+| **User-level dev tools you bump constantly** — `opencode`, `maki`, `yt-dlp`, `deno`, `golang` | **mise** (`home/default.nix` → `programs.mise`, tools in `mise/config.toml`) |
+
+The rule of thumb: **part of the environment → Nix; a tool in your toolbox
+that you update weekly and version per project → mise.** Pinning bleeding-edge
+CLIs in the Nix closure would slow every rebuild for zero gain — mise gives
+per-tool/per-project versions without touching the system.
+
 ## The point of this repo: make it *yours* in two files
 
 This config was designed so a different machine gets a fresh look **without
