@@ -6,11 +6,11 @@
 # outline = gruvbox dark green (was white)
 # Recolor against the same bibata-cursors 2.0.7 the vendored copy came from, so
 # output is pixel-identical to the old home/cursor/Bibata-Modern-Classic tree.
-{ pkgs }:
+{ pkgs, colors ? { accent = "#ff2b6d"; green = "#b8bb26"; } }:
 
 let
-  fill = "#ff2b6d";
-  outline = "#b8bb26";
+  fill = colors.accent;
+  outline = colors.green;
 in
 pkgs.stdenv.mkDerivation {
   pname = "bibata-modern-classic-recolored";

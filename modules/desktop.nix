@@ -1,6 +1,7 @@
 { pkgs, lib, unstable, ... }:
 
 let
+  theme = import ./theming.nix;   # palette / theme names (see file)
   # Same recolored cursor as the home session, so regreet matches (not stock).
   recoloredCursors = import ../home/cursor/theme.nix { inherit pkgs; };
 in
@@ -78,7 +79,7 @@ in
   ];
   # GTK3/4 apps (blueman, nm-applet, portals): force the gruvbox theme.
   # dconf color-scheme=prefer-dark (home) also set, belt and suspenders.
-  environment.variables.GTK_THEME = "gruvbox-dark";
+  environment.variables.GTK_THEME = theme.gtkTheme;
 
   # ---- Portals (screenshare/file dialogs under Wayland) ----------------------
   xdg.portal = {

@@ -1,8 +1,10 @@
 { pkgs, unstable, ... }:
 
 let
+  theme  = import ../modules/theming.nix;   # colors/themes (edit to re-theme)
+  sizing = import ../modules/sizing.nix;    # fonts/scales/layout (edit for other screens)
   # Recolored Bibata cursor theme shared by the sway session and regreet.
-  recoloredCursors = import ./cursor/theme.nix { inherit pkgs; };
+  recoloredCursors = import ./cursor/theme.nix { inherit pkgs; colors = theme.palette; };
 in
 {
   home.username = "hippo";
@@ -58,13 +60,13 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
 
   # Cursor: bigger + a real theme (default is a tiny X cursor)
   home.sessionVariables = {
-    XCURSOR_SIZE = "36";
-    XCURSOR_THEME = "Bibata-Modern-Classic";
+    XCURSOR_SIZE = toString sizing.display.cursor.env;
+    XCURSOR_THEME = theme.cursorTheme;
   };
 
   # Recolored Bibata from the single built package shared with regreet, so the
   # sway session and the greeter show the SAME hot-pink cursor. home.file
-  # shadows the store copy; the recolor colors are in home/cursor/theme.nix.
+  # shadows the store copy; colors come from modules/theming.nix (accent+green).
   home.file.".icons/Bibata-Modern-Classic".source =
     "${recoloredCursors}/share/icons/Bibata-Modern-Classic";
 
@@ -81,7 +83,11 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     Inherits=Bibata-Modern-Classic
   '';
 
-  home.file.".config/ghostty/config".source = ./ghostty/config;
+  home.file.".config/ghostty/config".text =
+    builtins.replaceStrings
+      [ "font-family = Cousine Nerd Font" "font-size = 18" ]
+      [ ("font-family = " + sizing.font.family) ("font-size = " + toString sizing.font.points.ghostty) ]
+      (builtins.readFile ./ghostty/config);
 
   # VS Code icon: the package ships hicolor/1024x1024/apps/vscode.png but the
   # launcher shows a blank box; pin it into the user icon theme so it resolves.
@@ -143,7 +149,18 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
   '';
 
   xdg.configFile."fuzzel/fuzzel.ini".source = ./fuzzel/fuzzel.ini;
-  xdg.configFile."mako/config".source = ./mako/config;
+  xdg.configFile."mako/config".text =
+    builtins.replaceStrings
+      [ "font=Cousine Nerd Font 16" "margin=24" "padding=10" "border-size=2"
+        "#282828EE" "#ebdbb2" "#83a598" "#cc241dE6"
+      ]
+      [ ("font=${sizing.font.family} " + toString sizing.font.points.mako)
+        ("margin=" + toString sizing.makoMargin)
+        ("padding=" + toString sizing.makoPadding)
+        ("border-size=" + toString sizing.makoBorder)
+        (theme.palette.bg + "EE") theme.palette.fg theme.palette.blue (theme.palette.red + "E6")
+      ]
+      (builtins.readFile ./mako/config);
 
   # fastfetch (neofetch drop-in): no config override — uses pure defaults,
   # which auto-detects + prints the NixOS logo. My earlier custom config
@@ -303,7 +320,40 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     # see it in the sandbox, so it fails. This is the documented course: skip
     # the sandboxed check (sway still validates + applies the config at login).
     checkConfig = false;
-    extraConfig = builtins.readFile ./sway/config + ''
+    extraConfig = let
+      pavu = sizing.popups.pavucontrol;
+      blu  = sizing.popups.blueman;
+      fnt  = sizing.font.points;
+      pal  = theme.palette;
+    in builtins.replaceStrings
+      [ # -- font / cursor / wallpaper / titlebar (sizing.nix + theming.nix) --
+        "font Cousine Nerd Font 22"
+        "seat * xcursor_theme Bibata-Modern-Classic 64"
+        "output eDP-1 bg /home/hippo/.local/share/backgrounds/gruvbox-astronaut-4k.png fill"
+        "titlebar_padding 4"
+        # -- floating popups (sizing.nix -> popups) --
+        "move position 2700 1700"
+        "move position 2800 80"
+        "resize set 500 850"
+        # -- colors (theming.nix -> palette) --
+        "#83a598"
+        "#282828"
+        "#ebdbb2"
+        "#665c54"
+        "#3c3836"
+        "#bdae93"
+        "#cc241d"
+      ]
+      [ "font ${sizing.font.family} ${toString fnt.sway}"
+        "seat * xcursor_theme ${theme.cursorTheme} ${toString sizing.display.cursor.seat}"
+        "output eDP-1 bg ${theme.wallpaper} fill"
+        "titlebar_padding ${toString sizing.titlebarPadding}"
+        "move position ${toString pavu.x} ${toString pavu.y}"
+        "move position ${toString blu.x} ${toString blu.y}"
+        "resize set ${toString blu.w} ${toString blu.h}"
+        pal.blue pal.bg pal.fg pal.bgDim pal.bgAlt pal.fgDim pal.red
+      ]
+      (builtins.readFile ./sway/config) + ''
 
       # Auto-float dialogs and popups (Dolphin file transfers, file pickers, etc.)
       for_window [window_role="pop-up"] floating enable
@@ -350,8 +400,25 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
   xdg.configFile."swayosd/style.css".source = ./swayosd/style.css;
 
   # Waybar config
-  xdg.configFile."waybar/config.jsonc".source = ./waybar/config.jsonc;
-  xdg.configFile."waybar/style.css".source = ./waybar/style.css;
+  xdg.configFile."waybar/config.jsonc".text =
+    builtins.replaceStrings
+      [ "\"icon-size\": 28," "\"spacing\": 10" ]
+      [ ("\"icon-size\": " + toString sizing.bar.iconSize + ",")
+        ("\"spacing\": " + toString sizing.bar.spacing) ]
+      (builtins.readFile ./waybar/config.jsonc);
+  xdg.configFile."waybar/style.css".text =
+    builtins.replaceStrings
+      [ "font-family: \"Cousine Nerd Font\", sans-serif;"
+        "font-size: 36px;"
+        "min-width: 56px;"
+        "#282828" "#ebdbb2" "#bdae93" "#83a598" "#cc241d" "#fabd2f"
+      ]
+      [ ("font-family: \"" + sizing.font.family + "\", sans-serif;")
+        ("font-size: " + toString sizing.font.points.waybar + "px;")
+        ("min-width: " + toString sizing.bar.fontMinWidth + "px;")
+        theme.palette.bg theme.palette.fg theme.palette.fgDim theme.palette.blue theme.palette.red theme.palette.yellow
+      ]
+      (builtins.readFile ./waybar/style.css);
 
   # Kanshi config
   xdg.configFile."kanshi/config".source = ./kanshi/config;

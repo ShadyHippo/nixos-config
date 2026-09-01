@@ -4,18 +4,22 @@
 
 { config, lib, pkgs, inputs, ... }:
 
+let
+  theme  = import ./modules/theming.nix;   # colors/themes → edit to re-theme
+  sizing = import ./modules/sizing.nix;    # fonts/scales/layout → edit for other screens
+in
 {
   # Reach the X11/XWayland apps (Discord/Signal) too: sway's seat only themes
   # Wayland clients; libXcursor needs the env vars + the ~/.icons/default
   # inherit set up in home/default.nix.
   environment.variables = {
-    XCURSOR_THEME = "Bibata-Modern-Classic";
-    XCURSOR_SIZE = "36";
+    XCURSOR_THEME = theme.cursorTheme;
+    XCURSOR_SIZE = toString sizing.display.cursor.env;
     # 4K@scale 1: Qt apps otherwise render at logical size. Global 1.5x (this
     # replaces the old per-app moonlight QT_SCALE_FACTOR wrapper - one env var
     # scales Dolphin, moonlight, kid3 and vlc alike). 2x was too large; 1.5x is
-    # the sweet spot.
-    QT_SCALE_FACTOR = "1.5";
+    # the sweet spot. Value lives in modules/sizing.nix (display.qt).
+    QT_SCALE_FACTOR = toString sizing.display.qt;
   };
 
   # ---- Qt theming (kvantum for BOTH Qt5 & Qt6, gruvbox) ------------------

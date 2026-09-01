@@ -1,5 +1,9 @@
 { config, pkgs, lib, ... }:
 
+let
+  sizing = import ./sizing.nix;   # all scaling decisions (see file)
+  theme  = import ./theming.nix;  # palette + theme names (see file)
+in
 {
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -73,7 +77,7 @@
     # "Bluetooth Manager" menu item.
     (blueman.overrideAttrs (old: {
       postFixup = (old.postFixup or "") + ''
-        wrapProgram $out/bin/blueman-manager --set GDK_SCALE 2
+        wrapProgram $out/bin/blueman-manager --set GDK_SCALE ${toString sizing.display.gtk.blueman}
       '';
     }))
     joycond                       # Joy-Con pair daemon (combines L+R into one pad)

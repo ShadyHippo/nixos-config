@@ -1,4 +1,6 @@
 /* swayosd — 2x scale, gruvbox */
+/* SIZING: every px below is the stock value × modules/sizing.nix (display.osd).
+   If you change display.osd there, scale these numbers by the same factor. */
 /* Loaded from ~/.config/swayosd/style.css (utils.rs user_style_path()).
    Doubles the stock style: container margin 16->32, progress min-height
    6->12, segment margin 8->16, and bumps label font to 40px + icon to 64.
