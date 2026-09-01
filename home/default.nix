@@ -1,5 +1,9 @@
 { pkgs, unstable, ... }:
 
+let
+  # Recolored Bibata cursor theme shared by the sway session and regreet.
+  recoloredCursors = import ./cursor/theme.nix { inherit pkgs; };
+in
 {
   home.username = "hippo";
   home.stateVersion = "26.05";
@@ -9,8 +13,8 @@
   # ---------------------------------------------------------------------------
   home.packages = with pkgs; [
     ghostty                # terminal
-    vscode                 # VS Code - swapped to unstable in flake.nix overlay (biweekly MS releases)
-    neovim                 # nightly via neovim-nightly-overlay (flake.nix)
+    vscode                 # VS Code — from the stable nixpkgs pin (no overlay is actually wired)
+    neovim                 # Neovim — from the stable nixpkgs pin (no nightly overlay)
     qalculate-gtk          # calculator (floating window rule exists for it)
     jq                     # used by sway screenshot/res scripts
 
@@ -43,9 +47,6 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     wlsunset                 # nightlight, hotkey-only toggle ($mod+Shift+u)
     polkit_gnome             # polkit-gnome-authentication-agent-1 (root prompts) - autostarted in sway
 
-    # Cursor theme (system default is a tiny placeholder X cursor)
-    bibata-cursors
-
     # System info fetch (modern neofetch drop-in — neofetch is unmaintained)
     fastfetch
 
@@ -63,10 +64,11 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     XCURSOR_THEME = "Bibata-Modern-Classic";
   };
 
-  # Recolored Bibata: hot pink body (#ff2b6d), gruvbox dark green outline
-  # (#b8bb26). Sits in ~/.icons, which shadows the store copy of the same
-  # name. Regenerate via home/cursor/recolor.py <fill> <outline>.
-  home.file.".icons/Bibata-Modern-Classic".source = ./cursor/Bibata-Modern-Classic;
+  # Recolored Bibata from the single built package shared with regreet, so the
+  # sway session and the greeter show the SAME hot-pink cursor. home.file
+  # shadows the store copy; the recolor colors are in home/cursor/theme.nix.
+  home.file.".icons/Bibata-Modern-Classic".source =
+    "${recoloredCursors}/share/icons/Bibata-Modern-Classic";
 
   # Desktop wallpaper (gruvbox astronaut, 4K). Installed to a stable path so the
   # sway config `output bg` (which needs an absolute path) just works.
@@ -170,7 +172,7 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
         file = "share/fzf-tab/fzf-tab.zsh";
       }
     ];
-    initExtra = ''
+    initContent = ''
       # ---- fzf-tab: <Tab> opens a fuzzy finder for the current directory ----
       zstyle ':completion:*' menu no
       zstyle ':fzf-tab:*' switch-group '<' '>'

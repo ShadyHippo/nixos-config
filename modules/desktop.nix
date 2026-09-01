@@ -1,5 +1,9 @@
 { pkgs, lib, unstable, ... }:
 
+let
+  # Same recolored cursor as the home session, so regreet matches (not stock).
+  recoloredCursors = import ../home/cursor/theme.nix { inherit pkgs; };
+in
 {
   # ---- Sway ------------------------------------------------------------------
   programs.sway = {
@@ -39,7 +43,7 @@
     font.size = 18;
     iconTheme.name = "Adwaita";           # already installed system-wide
     cursorTheme.name = "Bibata-Modern-Classic";
-    cursorTheme.package = pkgs.bibata-cursors;
+    cursorTheme.package = recoloredCursors;
   };
   # Greeter wallpaper + a clean regreet.css (greeter user owns /etc/greetd).
   environment.etc."greetd/greeter.jpg".source = ../images/gruvbox-cabin-snow-hill.jpg;
