@@ -55,7 +55,7 @@
     isNormalUser = true;
     description = "hippo";
     extraGroups = [ "wheel" "networkmanager" "audio" "video" "input" "docker" "scanner" "lp" ];
-    shell = pkgs.bash;
+    shell = pkgs.zsh;
   };
 
   environment.systemPackages = with pkgs; [

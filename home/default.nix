@@ -49,6 +49,8 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     # System info fetch (modern neofetch drop-in — neofetch is unmaintained)
     fastfetch
 
+    starship                 # prompt (config: ~/.config/starship.toml)
+
     # image tooling — convert (imagemagick) + cwebp (libwebp): required by
     # scripts/build_db.py for thumbnail resize (--thumb 128) + WebP encoding
     imagemagick
@@ -149,6 +151,47 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
 
   # pinyin ready at login (Ctrl+Super+A)
   programs.bash.enable = true;
+
+  # ---------------------------------------------------------------------------
+  # Shell: zsh — fzf-tab fuzzy completion on <Tab>, Starship prompt
+  # ---------------------------------------------------------------------------
+  programs.zsh = {
+    enable = true;
+    enableCompletion = true;
+    autosuggestion = {
+      enable = true;
+      highlight = "fg=#928374";   # gruvbox gray suggestion
+    };
+    syntaxHighlighting.enable = true;
+    plugins = [
+      {
+        name = "fzf-tab";
+        src = pkgs.zsh-fzf-tab;
+        file = "share/fzf-tab/fzf-tab.zsh";
+      }
+    ];
+    initExtra = ''
+      # ---- fzf-tab: <Tab> opens a fuzzy finder for the current directory ----
+      zstyle ':completion:*' menu no
+      zstyle ':fzf-tab:*' switch-group '<' '>'
+
+      # Preview the directory when tab-completing cd / paths
+      zstyle ':fzf-tab:complete:cd:*' fzf-preview \
+        'ls -1 --color=always $realpath 2>/dev/null || echo $realpath'
+      zstyle ':fzf-tab:complete:cd:*' fzf-flags '--height=40% --layout=reverse --border'
+
+      # Kill completion: preview the command behind the PID being completed
+      zstyle ':fzf-tab:complete:kill:argument-*' fzf-preview \
+        'ps --pid=$word -o comm --no-headers 2>/dev/null || true'
+
+      # ---- Starship prompt ----
+      eval "$(starship init zsh)"
+    '';
+  };
+
+  # Starship prompt config (deployed free from home-manager's TOML generator so
+  # the escaped bracket format string round-trips exactly).
+  xdg.configFile."starship.toml".source = ./starship.toml;
 
   programs.mise = {
     enable = true;

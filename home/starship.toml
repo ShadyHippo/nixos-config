@@ -1,0 +1,52 @@
+# Hippo-xps Starship prompt — gruvbox-inspired, minimal.
+#
+#   [<user:><dir>] <branch><status>❯
+#
+#   - user:  only shown when NOT the login user. Starship's username module does
+#     this natively (fires for root, another user, or ssh); it stays hidden for
+#     your normal login user. Rendered as `root:`, etc.
+#   - dir:   `~` at home, `~/subdir` under home, absolute path elsewhere.
+add_newline = false
+command_timeout = 1000
+scan_timeout = 10
+
+format = '[\[$username$directory\]](fg:#928374)$git_branch$git_status$character'
+
+# --- hide clutter we never want ---
+[hostname]
+disabled = true
+
+[os]
+disabled = true
+
+[shell]
+disabled = true
+
+# --- user: only when not the login user ---
+[username]
+style_user = 'bold fg:#fabd2f'
+style_root = 'bold fg:#fb4934'
+format = '[$user:]($style)'
+
+# --- directory: full path, home -> ~, no repo truncation ---
+[directory]
+truncation_length = 0
+truncate_to_repo = false
+home_symbol = '~'
+style = 'bold fg:#b8bb26'
+format = '[$path]($style)'
+
+# --- git branch ---
+[git_branch]
+symbol = ''
+format = ' [$symbol$branch](fg:#fe8019)'
+
+# --- git status (dirty files / ahead-behind) ---
+[git_status]
+format = ' [$all_status$ahead_behind](fg:#928374)'
+
+# --- prompt arrow ---
+[character]
+format = ' $symbol'
+success_symbol = '[❯](bold fg:#b8bb26)'
+error_symbol = '[✗](bold fg:#fb4934)'

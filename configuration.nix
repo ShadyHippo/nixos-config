@@ -102,6 +102,9 @@
 
   programs.firefox.enable = false;
 
+  # zsh: sets the login shell + nix dirs on PATH for users whose shell is zsh.
+  programs.zsh.enable = true;
+
   # List packages installed in system profile.
   # You can use https://search.nixos.org/ to find more packages (and options).
   environment.systemPackages = with pkgs; [
