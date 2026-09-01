@@ -334,6 +334,7 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
         # -- floating popups (sizing.nix -> popups) --
         "move position 2700 1700"
         "move position 2800 80"
+        "resize set 1060 500"
         # -- colors (theming.nix -> palette) --
         "#83a598"
         "#282828"
@@ -349,6 +350,7 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
         "titlebar_padding ${toString sizing.titlebarPadding}"
         "move position ${toString pavu.x} ${toString pavu.y}"
         "move position ${toString blu.x} ${toString blu.y}"
+        "resize set ${toString blu.w} ${toString blu.h}"
         pal.blue pal.bg pal.fg pal.bgDim pal.bgAlt pal.fgDim pal.red
       ]
       (builtins.readFile ./sway/config) + ''

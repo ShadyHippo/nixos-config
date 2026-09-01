@@ -234,7 +234,9 @@ for_window [app_id="(?i)pavucontrol"] move position 2700 1700
 for_window [class="(?i)pavucontrol"] move position 2700 1700
 for_window [app_id="(?i)blueman-manager"] floating enable
 for_window [class="(?i)blueman-manager"] floating enable
-for_window [app_id="(?i)blueman-manager"] move position 2800 80   # top-right; ×2 → ~1000×1700: 2800+1000 ≤ 3840, 80+1700 ≤ 2160
+for_window [app_id="(?i)blueman-manager"] resize set 1060 500   # shrink ×2 window to landscape size (sizing.nix popups.blueman)
+for_window [class="(?i)blueman-manager"] resize set 1060 500
+for_window [app_id="(?i)blueman-manager"] move position 2800 80   # token → bottom-right 2775,1610 (sizing.nix popups.blueman)
 for_window [class="(?i)blueman-manager"] move position 2800 80
 # Dolphin (KDE, native Wayland): its confirm/progress dialogs (Delete, Copying,
 # Moving, Extracting, Properties...) are xdg_toplevel windows just like the main

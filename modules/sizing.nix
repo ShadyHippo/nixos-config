@@ -43,8 +43,8 @@
 
   # ── FLOATING POPUP WINDOWS (anchored top-right under the bar) ──
   popups = {
-    pavucontrol = { x = 2250; y = 1000; };              # ×2 → ~1536×808 window: 2250+1536≤3840, 1000+838≤2160
-    blueman     = { w = 500; h = 850; x = 2800; y = 80; };  # below tray icons; renders at ×display.gtk.blueman → 1000×1700 px
+    pavucontrol = { x = 2310; y = 1310; };              # ×2 → ~1536×808 window: 2310+1536≤3840, 1310+838≤2160
+    blueman     = { w = 1060; h = 500; x = 2775; y = 1610; };  # ×2 natural ~1000×1700 → sway resizes to 1060×500, bottom-right (2775+1060≤3840, 1610+500≤2160)
   };
 
   # ── TOP BAR (waybar) ──
