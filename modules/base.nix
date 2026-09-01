@@ -67,7 +67,16 @@
     grim                          # screenshots (slurp lives in configuration.nix - overridden there with the -x crosshair/cursor-hide patches)
     wl-clipboard                  # wayland copy/paste
     pavucontrol                   # per-app volume
-    blueman                       # bluetooth pairing UI
+    # blueman: 2x-scaled like the Cura wrapper — blueman is GTK3 so QT_SCALE_FACTOR
+    # ignores it; GDK_SCALE=2 doubles the whole UI (buttons included). Wrapped at
+    # package level so BOTH launch paths scale: $mod+b toggle AND the tray icon's
+    # "Bluetooth Manager" menu item.
+    (blueman.overrideAttrs (old: {
+      postFixup = (old.postFixup or "") + ''
+        wrapProgram $out/bin/blueman-manager --set GDK_SCALE 2
+      '';
+    }))
+    joycond                       # Joy-Con pair daemon (combines L+R into one pad)
     playerctl                     # media keys
     libnotify                     # notify-send (your bash 'alert' alias)
     nfs-utils cifs-utils          # NAS mounts when needed

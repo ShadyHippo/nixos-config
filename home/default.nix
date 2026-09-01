@@ -50,8 +50,6 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     # System info fetch (modern neofetch drop-in — neofetch is unmaintained)
     fastfetch
 
-    starship                 # prompt (config: ~/.config/starship.toml)
-
     # image tooling — convert (imagemagick) + cwebp (libwebp): required by
     # scripts/build_db.py for thumbnail resize (--thumb 128) + WebP encoding
     imagemagick
@@ -155,16 +153,11 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
   programs.bash.enable = true;
 
   # ---------------------------------------------------------------------------
-  # Shell: zsh — fzf-tab fuzzy completion on <Tab>, Starship prompt
+  # Shell: zsh — fzf-tab fuzzy completion on <Tab>, fzf history on <Ctrl+R>, bare prompt
   # ---------------------------------------------------------------------------
   programs.zsh = {
     enable = true;
     enableCompletion = true;
-    autosuggestion = {
-      enable = true;
-      highlight = "fg=#928374";   # gruvbox gray suggestion
-    };
-    syntaxHighlighting.enable = true;
     plugins = [
       {
         name = "fzf-tab";
@@ -186,14 +179,50 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
       zstyle ':fzf-tab:complete:kill:argument-*' fzf-preview \
         'ps --pid=$word -o comm --no-headers 2>/dev/null || true'
 
-      # ---- Starship prompt ----
-      eval "$(starship init zsh)"
+      # ---- lazy Ctrl+R: fuzzy history search (fzf only runs when pressed) ----
+      if [[ -o zle ]]; then
+        _fzf_history() {
+          local sel
+          sel=$(fc -ln 1 | fzf --height=40% --layout=reverse --border --query="$BUFFER")
+          if [[ -n "$sel" ]]; then
+            BUFFER="$sel"
+            CURSOR=$#BUFFER
+          fi
+          zle reset-prompt
+        }
+        zle -N _fzf_history
+        bindkey '^R' _fzf_history
+      fi
+
+      # ---- bare prompt: ~/path ❯ (hot-pink), red ❯ on error, red # as root ----
+      zmodload zsh/datetime
+      autoload -Uz add-zsh-hook
+      _sp_dur=""
+      _sp_start=""
+      _sp_preexec() { _sp_start=$EPOCHREALTIME; }
+      _sp_precmd() {
+        if [[ -n "$_sp_start" ]]; then
+          local s=$(( EPOCHREALTIME - _sp_start ))
+          printf -v _sp_dur '%.2fs' $s
+          RPROMPT="%F{#928374}took $_sp_dur%f"
+        else
+          RPROMPT=""
+        fi
+      }
+      add-zsh-hook preexec _sp_preexec
+      add-zsh-hook precmd _sp_precmd
+      # %~  -> ~ at home, ~/subdir under home, full absolute path elsewhere
+      # %(!). = root? (then red #) : (?(. = last cmd ok? pink ❯ : red ❯)
+      PROMPT='%B%F{#ff2b6d}%~%f %(!.%F{#fb4934}#.%(?.%F{#ff2b6d}.%F{#fb4934})❯)%f%b '
     '';
   };
 
-  # Starship prompt config (deployed free from home-manager's TOML generator so
-  # the escaped bracket format string round-trips exactly).
-  xdg.configFile."starship.toml".source = ./starship.toml;
+  # fzf: installs the binary (fzf-tab needs it); zsh integration disabled —
+  # Ctrl+R is a lazy widget in initContent that spawns fzf only when pressed.
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = false;
+  };
 
   programs.mise = {
     enable = true;
@@ -309,6 +338,10 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
   };
   xdg.configFile."sway/scripts/pavucontrol-toggle.sh" = {
     source = ./sway/scripts/pavucontrol-toggle.sh;
+    executable = true;
+  };
+  xdg.configFile."sway/scripts/blueman-toggle.sh" = {
+    source = ./sway/scripts/blueman-toggle.sh;
     executable = true;
   };
 

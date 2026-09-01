@@ -148,6 +148,7 @@ bindsym $mod+semicolon splith
 bindsym $mod+v splitv
 bindsym $mod+f fullscreen toggle
 bindsym $mod+a focus parent
+bindsym $mod+b exec ~/.config/sway/scripts/blueman-toggle.sh  # bluetooth manager UI (toggle like pavucontrol)
 
 bindsym $mod+s layout stacking
 bindsym $mod+w layout tabbed
@@ -231,11 +232,22 @@ for_window [app_id="(?i)pavucontrol"] floating enable
 for_window [class="(?i)pavucontrol"] floating enable
 for_window [app_id="(?i)pavucontrol"] move position 2700 1700
 for_window [class="(?i)pavucontrol"] move position 2700 1700
+for_window [app_id="(?i)blueman-manager"] floating enable
+for_window [class="(?i)blueman-manager"] floating enable
+for_window [app_id="(?i)blueman-manager"] resize set 500 850   # GDK_SCALE=2 renders 2x -> 1000x1700 on screen
+for_window [class="(?i)blueman-manager"] resize set 500 850
+for_window [app_id="(?i)blueman-manager"] move position 2800 80   # top-right; 2800+1000 <= 3840, 80+1700 <= 2160
+for_window [class="(?i)blueman-manager"] move position 2800 80
 # Dolphin (KDE, native Wayland): its confirm/progress dialogs (Delete, Copying,
 # Moving, Extracting, Properties...) are xdg_toplevel windows just like the main
 # window - Wayland exposes no window role/type, so the window_role rules above
 # can't catch them. Match by title keywords, scoped to the Dolphin app_id.
 for_window [app_id="(?i)org\.kde\.dolphin" title="(?i)(delete|trash|copy(ing)?|mov(e|ing)|renam|progress|extract|overwrit|skip|conflict|error|propert(ies|y)|open with|about)"] floating enable
+# Main-window rescue: the rule above matches the PATH inside the main window's
+# title too (title = "<path> — Dolphin") — e.g. browsing the Trash location or a
+# folder named "Copy"/"Progress" floats the whole file manager. These rules run
+# later, so any title ending in "<sep> Dolphin" is forced back to tiled.
+for_window [app_id="(?i)org\.kde\.dolphin" title="(?i).* ([—–-]) dolphin$"] floating disable
 
 # ---------------------------------------------------------------------------
 # Bar

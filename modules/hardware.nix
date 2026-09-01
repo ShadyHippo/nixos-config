@@ -75,6 +75,11 @@
     powerOnBoot = false;   # battery; toggle with rfkill or blueman
   };
 
+  # ---- Nintendo Switch controllers (Joy-Con / Pro) ---------------------------
+  # hid_nintendo: kernel's native driver for Switch controllers over USB/BT.
+  # Merges with hardware-configuration.nix's kvm-intel via list concatenation.
+  boot.kernelModules = [ "hid_nintendo" ];
+
   # ---- Wi-Fi/BT (Intel AC 9560 — replaced the stock QCA6174) ----------------
   # Intel iwlwifi driver is mature and in-kernel, but the firmware blob is
   # non-free-redistributable. Without this option the card has no firmware
