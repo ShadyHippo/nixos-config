@@ -16,7 +16,7 @@ rec {
     points = {
       sway     = 22;   # window titles
       waybar   = 36;   # bar labels (x2 = readability on the 4K panel)
-      mako     = 16;   # notifications
+      mako     = 18;   # notifications (matches ghostty at every preset)
       ghostty  = 18;   # terminal
       osd      = 20;   # swayosd; rendered at ×display.osd pixels
       fuzzel   = 0;    # not set — fuzzel falls back to its default (0 = skip)

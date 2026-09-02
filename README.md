@@ -63,6 +63,73 @@ Per-monitor placement is the one thing NOT in `sizing.nix`: that's
    `modules/base.nix` and `home.username` in `home/default.nix`.
 5. Build: `sudo nixos-rebuild switch --flake .#hippo-xps`
 
+## Keybindings (`$mod` = Super/Windows key)
+
+Sway is near-stock — everything not listed here keeps its stock default
+(`$mod+Return` terminal, `$mod+d` menu, `$mod+Shift+q` kill, `$mod+f`
+fullscreen, `$mod+r` resize mode, workspaces/scratchpad, …).
+
+### Resolution presets — `$mod+F10/F11/F12`
+
+Intended for games/streaming on the 4K panel. The iGPU composites at the low
+resolution and the panel's fixed scaler upscales to 3840×2160 — so every
+framebuffer px is 2 (1080p) or 3 (720p) physical px. `set-res.sh` re-derives
+**everything** per preset from `modules/sizing.nix` (`presets`) and applies it
+live: fonts (sway/waybar/mako/ghostty/GTK/swayosd), bar size, notification
+margins, cursor size, mouse speed, popup anchors — open terminals even update
+in place (ghostty SIGUSR2 config reload).
+
+| Key | Resolution | Use |
+|---|---|---|
+| `$mod+F10` | 1280×720 | native play |
+| `$mod+F11` | 1920×1080 | streaming |
+| `$mod+F12` | 3840×2160 (EDID) | desktop |
+
+Note: a terminal that was manually zoomed (`Ctrl+=`/`Ctrl+-`) drops out of the
+font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
+
+### Help & utilities
+
+| Key | Action |
+|---|---|
+| `$mod+F1` | searchable keybind overview (`keys.sh` → fuzzel `--dmenu`) |
+| `$mod+n` | notification history (mako buffer via fuzzel viewer) |
+| `$mod+Shift+u` | wlsunset nightlight toggle (warm 4000K, no timer) |
+| `$mod+Shift+Return` | new Zen browser window |
+| `$mod+b` | blueman bluetooth manager (2×-scaled floating popup) |
+
+### IME (works in every app)
+
+| Key | Action |
+|---|---|
+| `$mod+Shift+a` / `Ctrl+Super+a` | toggle English ⇄ Pinyin (fcitx5; sway intercepts before the app, so VS Code/Electron have no blind spot) |
+
+### Screenshots — clipboard-only (Windows-snipping style)
+
+| Key | Action |
+|---|---|
+| `Print` | whole screen → clipboard |
+| `Ctrl+Print` | focused window → clipboard |
+| `$mod+Shift+s` | snip: rectangle select with **live pixel measurements** |
+
+### Focus, move & splits — vim directions
+
+`$mod+h/j/k/l` = focus left/down/up/right (**`$mod+h` is *not* split** — it was
+rebound when focus went vim; arrows work too). Move windows with
+`$mod+Shift+h/j/k/l`. Consequences: `$mod+semicolon` = horizontal split, and
+`$mod+v` = vertical split (stock). The resize mode (`$mod+r`) also uses vim
+keys.
+
+### Hardware keys & other bindings
+
+- `XF86Audio*` / `XF86MonBrightness*` → swayosd on-screen popups;
+  play/pause/next/prev → playerctl.
+- caps → Esc via `keyd` (system-wide).
+- `$mod+Shift+e` quits sway (confirmation nag); `$mod+Shift+c` reloads config.
+- Window rules: Signal/Discord → workspace 9, Slack → 8; pavucontrol/blueman
+  float as 2×-scaled popups anchored to their tray icons; Dolphin dialogs float.
+- Bar sits at the **bottom**; focus follows mouse; the cursor never auto-hides.
+
 ## Layout
 
 ```
