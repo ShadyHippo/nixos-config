@@ -21,13 +21,13 @@ preset="${1:?usage: $0 720|1080|4k}"
 case "$preset" in
   720)  FACTOR="@FACTOR_720@" SCALE="@SCALE_720@" ACCEL="@ACCEL_720@"
         GTK_FONT="@GTK_FONT_720@" CURSOR="@CURSOR_720@"
-        SWAY="@SWAY_720@" WAYBAR="@WB_720@" MAKO="@MAKO_720@" GHOST="@GHOST_720@" OSD="@OSD_720@" GTKINI="@GTKINI_720@" ;;
+        SWAY="@SWAY_720@" WAYBAR="@WB_720@" MAKO="@MAKO_720@" GHOST="@GHOST_720@" OSD="@OSD_720@" GTKINI_SED="@GTKINI_720@" ;;
   1080) FACTOR="@FACTOR_1080@" SCALE="@SCALE_1080@" ACCEL="@ACCEL_1080@"
         GTK_FONT="@GTK_FONT_1080@" CURSOR="@CURSOR_1080@"
-        SWAY="@SWAY_1080@" WAYBAR="@WB_1080@" MAKO="@MAKO_1080@" GHOST="@GHOST_1080@" OSD="@OSD_1080@" GTKINI="@GTKINI_1080@" ;;
+        SWAY="@SWAY_1080@" WAYBAR="@WB_1080@" MAKO="@MAKO_1080@" GHOST="@GHOST_1080@" OSD="@OSD_1080@" GTKINI_SED="@GTKINI_1080@" ;;
   4k)   FACTOR="@FACTOR_4k@" SCALE="@SCALE_4k@" ACCEL="@ACCEL_4k@"
         GTK_FONT="@GTK_FONT_4k@" CURSOR="@CURSOR_4k@"
-        SWAY="@SWAY_4k@" WAYBAR="@WB_4k@" MAKO="@MAKO_4k@" GHOST="@GHOST_4k@" OSD="@OSD_4k@" GTKINI="@GTKINI_4k@" ;;
+        SWAY="@SWAY_4k@" WAYBAR="@WB_4k@" MAKO="@MAKO_4k@" GHOST="@GHOST_4k@" OSD="@OSD_4k@" GTKINI_SED="@GTKINI_4k@" ;;
   *) echo "usage: $0 720|1080|4k" >&2; exit 1 ;;
 esac
 
@@ -91,7 +91,10 @@ pkill -SIGUSR2 -xf 'ghostty' 2>/dev/null || pkill -SIGUSR2 -x .ghostty-wrappe 2>
 #    (swaymsg exec keeps it tracked as sway's child; a full sway restart later
 #    replaces it cleanly instead of ending up with two servers).
 printf '%s\n' "$OSD" | sed -i -f /dev/stdin "$OSD_CSS"
-pkill -x swayosd-server || true
+# nixpkgs renames the swayosd-server ELF to .swayosd-server (comm is the dot
+# name — same rename trick as ghostty), so -x swayosd-server matches nothing.
+# The exec below then starts a fresh copy, picking up the new style.css.
+pkill -x .swayosd-server 2>/dev/null || true
 swaymsg exec swayosd-server
 
 # 5) GTK cursor size in gtk-3.0/settings.ini (new XWayland apps read it at
@@ -99,7 +102,11 @@ swaymsg exec swayosd-server
 #    Best-effort (|| true): a gsettings failure must never abort the script
 #    before the payload write + the "preset applied" toast below (it did once —
 #    gsettings was missing from the system, so nothing past here ever ran).
-printf '%s\n' "$GTKINI" | sed -i -f /dev/stdin "$GTKINI"
+printf '%s\n' "$GTKINI_SED" | sed -i -f /dev/stdin "$GTKINI"
+# gsettings can't see schemas in sway's exec env (regreet doesn't source the
+# profile XDG_DATA_DIRS that login shells get), so point at the schema dir
+# directly. Resolved every run (survives rebuilds); empty = calls no-op below.
+export GSETTINGS_SCHEMA_DIR="${GSETTINGS_SCHEMA_DIR:-$(ls -d /nix/store/*-gsettings-desktop-schemas-*/share/gsettings-schemas/*/glib-2.0/schemas 2>/dev/null | head -1)}"
 gsettings set org.gnome.desktop.interface font-name "Cousine Nerd Font $GTK_FONT" || true
 gsettings set org.gnome.desktop.interface cursor-size "$CURSOR" || true
 

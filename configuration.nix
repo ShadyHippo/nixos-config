@@ -22,6 +22,14 @@ in
     QT_SCALE_FACTOR = toString sizing.display.qt;
   };
 
+  # gsettings schemas for login shells: the nix profile injects the per-package
+  # XDG_DATA_DIRS entries when a profile.d is sourced, but sway's session
+  # (regreet) never sources it — set-res.sh handles sway's env via
+  # GSETTINGS_SCHEMA_DIR instead. This line just makes the schemas reachable
+  # for any other consumer that does source /etc/profile.
+  environment.sessionVariables.XDG_DATA_DIRS =
+    [ "${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/gsettings-desktop-schemas-${pkgs.gsettings-desktop-schemas.version}" ];
+
   # ---- Qt theming (kvantum for BOTH Qt5 & Qt6, gruvbox) ------------------
   # The nix `qt` module installs qtstyleplugin-kvantum for both Qt5 and Qt6
   # (theme engine available in BOTH versions - the cross-version trick) and
