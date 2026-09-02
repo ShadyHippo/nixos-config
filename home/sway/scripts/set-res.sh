@@ -80,7 +80,11 @@ pkill -SIGUSR2 -x waybar || true
 printf '%s\n' "$MAKO" | sed -i -f /dev/stdin "$MAKO_CFG"
 makoctl reload || true
 printf '%s\n' "$GHOST" | sed -i -f /dev/stdin "$GHOST_CFG"
-pkill -SIGUSR2 -x ghostty || true
+# nixpkgs renames the ELF to .ghostty-wrapped (comm: .ghostty-wrappe), so -x
+# ghostty never matched and the reload was silently skipped. -xf matches the
+# wrapper's preserved argv0 ("ghostty") exactly; -x .ghostty-wrappe is a
+# comm-based fallback. SIGUSR2 = reload config only; terminals stay open.
+pkill -SIGUSR2 -xf 'ghostty' 2>/dev/null || pkill -SIGUSR2 -x .ghostty-wrappe 2>/dev/null || true
 
 # 4) swayosd — style.css is read at server start, so restart it via sway
 #    (swaymsg exec keeps it tracked as sway's child; a full sway restart later
