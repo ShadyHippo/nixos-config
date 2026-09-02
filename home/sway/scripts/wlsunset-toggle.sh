@@ -1,11 +1,13 @@
 #!/usr/bin/env sh
-# Toggle wlsunset nightlight (constant 4000K warm). $mod+o = Orange.
-# Both -t and -T set to 4000: wlsunset only applies -t (low temp) between
-# sunset/sunrise; without location or manual times it defaults to a fixed
-# 18:00/06:00 schedule, so -t alone is invisible during the day. -T 4000
-# forces warm at all times. If running, kill it (back to normal); if not, start it.
+# Toggle wlsunset nightlight (constant warm). $mod+o = Orange.
+# wlsunset REQUIRES -T (high) > -t (low) — equal temps exit rc=1 with
+# "high temp must be higher than low temp", invisible when launched with &
+# from sway. So -t 4000 -T 4001: daytime outputs 4001K, night 4000K — both
+# warm, 1K apart = imperceptible, constant warm whenever ON. (Without -l/-L
+# or -S/-s it uses a fixed 18:00/06:00 schedule; irrelevant now that both
+# temps are ~4000.) If running, kill it (back to normal); if not, start it.
 if pgrep -x wlsunset >/dev/null 2>&1; then
   pkill wlsunset
 else
-  wlsunset -t 4000 -T 4000 &
+  wlsunset -t 4000 -T 4001 &
 fi
