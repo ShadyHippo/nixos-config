@@ -81,9 +81,9 @@ in place (ghostty SIGUSR2 config reload).
 
 | Key | Resolution | Use |
 |---|---|---|
-| `$mod+F10` | 1280×720 | native play |
-| `$mod+F11` | 1920×1080 | streaming |
-| `$mod+F12` | 3840×2160 (EDID) | desktop |
+| `$mod+F10` | 1280×720 | native game play |
+| `$mod+F11` | 1920×1080 | game streaming |
+| `$mod+F12` | 3840×2160 (EDID) | normal desktop |
 
 Note: a terminal that was manually zoomed (`Ctrl+=`/`Ctrl+-`) drops out of the
 font cascade — press `Ctrl+0` in it (reset font size) to rejoin.

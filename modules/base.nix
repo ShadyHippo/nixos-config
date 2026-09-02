@@ -94,6 +94,8 @@ in
     joycond                       # Joy-Con pair daemon (combines L+R into one pad)
     playerctl                     # media keys
     libnotify                     # notify-send (your bash 'alert' alias)
+    glib.bin                      # gsettings — set-res.sh sets font-name/cursor-size live
+    gsettings-desktop-schemas     # org.gnome.desktop.interface etc. (schema files for gsettings)
     nfs-utils cifs-utils          # NAS mounts when needed
   ];
 

@@ -96,9 +96,12 @@ swaymsg exec swayosd-server
 
 # 5) GTK cursor size in gtk-3.0/settings.ini (new XWayland apps read it at
 #    launch) + live dconf values (font-name for GTK dialogs, cursor-size).
+#    Best-effort (|| true): a gsettings failure must never abort the script
+#    before the payload write + the "preset applied" toast below (it did once —
+#    gsettings was missing from the system, so nothing past here ever ran).
 printf '%s\n' "$GTKINI" | sed -i -f /dev/stdin "$GTKINI"
-gsettings set org.gnome.desktop.interface font-name "Cousine Nerd Font $GTK_FONT"
-gsettings set org.gnome.desktop.interface cursor-size "$CURSOR"
+gsettings set org.gnome.desktop.interface font-name "Cousine Nerd Font $GTK_FONT" || true
+gsettings set org.gnome.desktop.interface cursor-size "$CURSOR" || true
 
 # 6) Record the scale for app launchers (pavucontrol-toggle.sh, blueman wrapper)
 #    so future opens match this preset.

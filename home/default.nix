@@ -293,6 +293,8 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     profiles.default.userSettings = {
       "workbench.sideBar.location" = "right";
       "window.zoomLevel" = 2.5;
+      "files.autoSave" = "afterDelay";      # auto-save (1s after typing stops)
+      "editor.formatOnSave" = true;          # format file on save
       "workbench.colorTheme" = "Gruvbox Dark Hard";
       "vim.useSystemClipboard" = true;
       "vim.hlsearch" = true;
@@ -314,6 +316,17 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
         "editorBracketHighlight.unexpectedBracket.foreground" = "#ff0000";
       };
     };
+    profiles.default.keybindings = [
+      {
+        key = "ctrl+shift+s";
+        command = "workbench.action.files.saveAll";   # Save All (overrides Save As default)
+      }
+      {
+        key = "alt+shift+f";
+        command = "editor.action.formatDocument";     # format the whole file
+        when = "editorTextFocus && !editorReadonly";
+      }
+    ];
   };
 
   # ---------------------------------------------------------------------------
