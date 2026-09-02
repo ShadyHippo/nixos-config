@@ -94,7 +94,7 @@ font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
 |---|---|
 | `$mod+F1` | searchable keybind overview (`keys.sh` → fuzzel `--dmenu`) |
 | `$mod+n` | notification history (mako buffer via fuzzel viewer) |
-| `$mod+Shift+u` | wlsunset nightlight toggle (warm 4000K, no timer) |
+| `$mod+o` | wlsunset nightlight toggle (warm orange 4000K, no timer) |
 | `$mod+Shift+Return` | new Zen browser window |
 | `$mod+b` | blueman bluetooth manager (2×-scaled floating popup) |
 
@@ -102,7 +102,7 @@ font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
 
 | Key | Action |
 |---|---|
-| `$mod+Shift+a` / `Ctrl+Super+a` | toggle English ⇄ Pinyin (fcitx5; sway intercepts before the app, so VS Code/Electron have no blind spot) |
+| `$mod+Shift+t` | toggle English ⇄ Pinyin (fcitx5; sway intercepts before the app, so VS Code/Electron have no blind spot) |
 
 ### Screenshots — clipboard-only (Windows-snipping style)
 

@@ -75,7 +75,7 @@ client.urgent           #cc241d #cc241d #ebdbb2
 # ---------------------------------------------------------------------------
 # Autostart [all mine]
 # ---------------------------------------------------------------------------
-exec fcitx5 -d --replace                # Pinyin ready at login (Ctrl+Super+A)
+exec fcitx5 -d --replace                # Pinyin ready at login ($mod+Shift+t)
 exec kanshi                             # monitor hotplug profiles
 exec mako                               # notifications
 exec swayosd-server                     # volume/brightness OSD popups
@@ -113,8 +113,8 @@ bindsym XF86AudioPlay exec playerctl play-pause
 bindsym XF86AudioNext exec playerctl next
 bindsym XF86AudioPrev exec playerctl previous
 
-# Nightlight toggle (wlsunset warm 4000K, hotkey-only, no timer) [mine]
-bindsym $mod+Shift+u exec ~/.config/sway/scripts/wlsunset-toggle.sh
+# Nightlight toggle (wlsunset orange 4000K, hotkey-only, no timer). $mod+o = Orange. [mine]
+bindsym $mod+o exec ~/.config/sway/scripts/wlsunset-toggle.sh
 
 # ---------------------------------------------------------------------------
 # Core bindings — STOCK SWAY DEFAULTS from here down (except tags)
@@ -191,9 +191,8 @@ bindsym $mod+F1 exec ~/.config/sway/scripts/keys.sh
 bindsym $mod+n exec ~/.config/sway/scripts/notif-history.sh
 
 # Global EN/Pinyin toggle — works in EVERY app (sway intercepts before the
-# app's IME protocol, so no VS Code/Electron blind spot). [mine]
-bindsym $mod+Shift+a exec fcitx5-remote -t
-bindsym Ctrl+Super+a exec fcitx5-remote -t
+# app's IME protocol, so no VS Code/Electron blind spot). $mod+Shift+t = Text. [mine]
+bindsym $mod+Shift+t exec fcitx5-remote -t
 
 set $resize_mode Resize
 mode $resize_mode {

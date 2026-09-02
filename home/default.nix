@@ -47,7 +47,7 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     swayosd                 # volume/brightness OSD popups (server autostarted in sway)
     libpulseaudio            # pactl, for low-level audio control
     networkmanagerapplet     # nm-applet: wifi tray menu + secrets agent (autostarted in sway)
-    wlsunset                 # nightlight, hotkey-only toggle ($mod+Shift+u)
+    wlsunset                 # nightlight (orange), hotkey-only toggle ($mod+o)
     polkit_gnome             # polkit-gnome-authentication-agent-1 (root prompts) - autostarted in sway
 
     # System info fetch (modern neofetch drop-in — neofetch is unmaintained)
@@ -131,14 +131,17 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     0=Default
   '';
 
-  # KeyList is comma-separated (fcitx5 source, globalconfig.cpp). Toggle =
-  # Ctrl+Super+a (user's choice; Ctrl+Space dropped - VS Code uses it for
-  # IntelliSense, and it was unreliable in some apps anyway).
+  # KeyList is comma-separated (fcitx5 source, globalconfig.cpp). The ONE
+  # IME toggle is $mod+Shift+t (= Super+Shift+t, "Text"): sway's bindsym
+  # catches it first (fcitx5-remote -t) and consumes the key, so this
+  # TriggerKeys never double-fires — kept in sync so no other combo works.
+  # Ctrl+Space dropped - VS Code uses it for IntelliSense, and unreliable
+  # in some apps anyway.
   # ShareInputState=All makes the IM state GLOBAL (not per-app; default No).
   # Enum verified in fcitx5 globalconfig.cpp BehaviorConfig.
   xdg.configFile."fcitx5/config".text = ''
     [Hotkey]
-    TriggerKeys=Control+Super+a
+    TriggerKeys=Super+Shift+t
 
     [Behavior]
     ShareInputState=All
@@ -176,7 +179,7 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
   # which auto-detects + prints the NixOS logo. My earlier custom config
   # disabled the logo with "type":"none". Remove it to get the logo back.
 
-  # pinyin ready at login (Ctrl+Super+A)
+  # pinyin ready at login ($mod+Shift+t)
   programs.bash.enable = true;
 
   # ---------------------------------------------------------------------------
