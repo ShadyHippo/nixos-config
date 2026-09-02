@@ -17,5 +17,9 @@
 if pgrep -x '.pavucontrol-wr' >/dev/null 2>&1; then
   pkill -x '.pavucontrol-wr'
 else
-  GDK_BACKEND=x11 GDK_SCALE=@PAV_SCALE@ pavucontrol >/dev/null 2>&1 &
+  # GDK_SCALE follows the resolution preset: set-res.sh writes SCALE=… to
+  # ~/.config/sway/preset on every switch. Default = @PAV_SCALE@ (4K) so the
+  # first launch before any switch still scales.
+  [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
+  GDK_BACKEND=x11 GDK_SCALE="${SCALE:-@PAV_SCALE@}" pavucontrol >/dev/null 2>&1 &
 fi

@@ -84,11 +84,16 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     Inherits=Bibata-Modern-Classic
   '';
 
-  home.file.".config/ghostty/config".text =
-    builtins.replaceStrings
+  # force: set-res.sh rewrites font-size at runtime (F10/F11/F12) — the file is
+  # often non-base at switch time, so HM must reset it WITHOUT backing up (a
+  # .bak would collide with the stale one from the last dirty switch).
+  home.file.".config/ghostty/config" = {
+    force = true;
+    text = builtins.replaceStrings
       [ "font-family = Cousine Nerd Font" "font-size = 18" ]
       [ ("font-family = " + sizing.font.family) ("font-size = " + toString sizing.font.points.ghostty) ]
       (builtins.readFile ./ghostty/config);
+  };
 
   # VS Code icon: the package ships hicolor/1024x1024/apps/vscode.png but the
   # launcher shows a blank box; pin it into the user icon theme so it resolves.
@@ -150,8 +155,11 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
   '';
 
   xdg.configFile."fuzzel/fuzzel.ini".source = ./fuzzel/fuzzel.ini;
-  xdg.configFile."mako/config".text =
-    builtins.replaceStrings
+  # force: set-res.sh rewrites this at runtime (F10/F11/F12) — reset to base
+  # without backing up (see ghostty/config comment for the .bak collision).
+  xdg.configFile."mako/config" = {
+    force = true;
+    text = builtins.replaceStrings
       [ "font=Cousine Nerd Font 16" "margin=24" "padding=10" "border-size=2"
         "#282828EE" "#ebdbb2" "#83a598" "#cc241dE6"
       ]
@@ -162,6 +170,7 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
         (theme.palette.bg + "EE") theme.palette.fg theme.palette.blue (theme.palette.red + "E6")
       ]
       (builtins.readFile ./mako/config);
+  };
 
   # fastfetch (neofetch drop-in): no config override — uses pure defaults,
   # which auto-detects + prints the NixOS logo. My earlier custom config
@@ -362,14 +371,83 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     '';
   };
 
+  # set-res.sh rewrites the installed sway config at runtime (F10/F11/F12), so
+  # hm's per-file backup collides with the stale .bak on every switch made at a
+  # non-4K preset. force = HM always resets to base, never backs up (merges
+  # with the sway module's own definition of this file).
+  xdg.configFile."sway/config".force = true;
+
   # Scripts referenced from sway config
   xdg.configFile."sway/scripts/screenshot.sh" = {
     source = ./sway/scripts/screenshot.sh;
     executable = true;
   };
-  xdg.configFile."sway/scripts/set-res.sh" = {
-    source = ./sway/scripts/set-res.sh;
+  # set-res.sh (F10/F11/F12 resolution presets): every number baked in from
+  # modules/sizing.nix (presets). The sed patterns live in the script; only the
+  # per-preset VALUES are injected here (one token set per preset). The script
+  # edits the INSTALLED configs, so its "old" patterns match any number left by
+  # the previous preset — no stale-state problem.
+  xdg.configFile."sway/scripts/set-res.sh" = let
+    pres = sizing.presets;
+    fam  = sizing.font.family;
+    curs = theme.cursorTheme;
+    mkSway = p: builtins.concatStringsSep "\n" (
+      # Mode lives IN the config, not a post-reload command: on reload sway
+      # re-queues the output to the EDID preferred mode when the config has no
+      # mode line, and that deferred commit clobbers any mode set right after
+      # the reload (verified). So: delete any eDP-1 mode line, and (sub-4K
+      # presets) append our --custom one — one reload applies values + mode
+      # atomically. The 4k preset just deletes it (reload → preferred = 4K).
+      [ ( "/^output eDP-1 mode/d"
+          + (if p.mode == "native" then "" else "\n$a output eDP-1 ${p.mode}") )
+        "s|^font .*\\b[0-9]\\+$|font ${fam} ${toString p.fonts.sway}|"
+        "s|^seat \\* xcursor_theme .*\\b[0-9]\\+$|seat * xcursor_theme ${curs} ${toString p.cursorSeat}|"
+        "s|pointer_accel .*|pointer_accel ${p.accel}|"
+        "s|^titlebar_padding .*|titlebar_padding ${toString p.titlebar}|"
+        "s|\\(for_window \\[[a-z_]*=\"(?i)pavucontrol\"\\]\\) move position [0-9 ]*|\\1 move position ${toString p.pavu.x} ${toString p.pavu.y}|g"
+        "s|\\(for_window \\[[a-z_]*=\"(?i)blueman-manager\"\\]\\) resize set [0-9 x]*|\\1 resize set ${toString p.blueman.w} ${toString p.blueman.h}|g"
+        "s|\\(for_window \\[[a-z_]*=\"(?i)blueman-manager\"\\]\\) move position [0-9 ]*|\\1 move position ${toString p.blueman.x} ${toString p.blueman.y}|g"
+      ] );
+    mkWaybar = p: builtins.concatStringsSep "\n" [
+      "s|font-size: [0-9]*px;|font-size: ${toString p.fonts.waybar}px;|"
+      "s|min-width: [0-9]*px;|min-width: ${toString p.bar.fontMinWidth}px;|"
+      "s|\"height\": [0-9]*|\"height\": ${toString p.bar.height}|"
+      "s|\"icon-size\": [0-9]*|\"icon-size\": ${toString p.bar.iconSize}|"
+      "s|\"spacing\": [0-9]*|\"spacing\": ${toString p.bar.spacing}|"
+    ];
+    mkMako = p: builtins.concatStringsSep "\n" [
+      "s|^font=.*|font=${fam} ${toString p.fonts.mako}|"
+      "s|^margin=[0-9]*|margin=${toString p.mako.margin}|"
+      "s|^padding=[0-9]*|padding=${toString p.mako.padding}|"
+      "s|^border-size=[0-9]*|border-size=${toString p.mako.border}|"
+    ];
+    mkGhost = p: "s|^font-size = [0-9.]*|font-size = ${toString p.fonts.ghostty}|";
+    mkOsd = p: builtins.concatStringsSep "\n" [
+      "s|min-width: [0-9]*px;|min-width: ${toString p.osd.minWidth}px;|"
+      "s|margin: [0-9]*px;|margin: ${toString p.osd.margin}px;|"
+      "s|font-size: [0-9]*px;|font-size: ${toString p.fonts.osd}px;|"
+      "s|-gtk-icon-size: [0-9]*px;|-gtk-icon-size: ${toString p.osd.icon}px;|"
+      "s|min-height: [0-9]*px;|min-height: ${toString p.osd.bar}px;|"
+      "s|margin-left: [0-9]*px;|margin-left: ${toString p.osd.seg}px;|"
+    ];
+    mkGtkIni = p: "s|gtk-cursor-theme-size=.*|gtk-cursor-theme-size=${toString p.cursorSeat}|";
+    # sed patterns go inside bash double-quoted assignments, so quotes AND dollar
+    # signs must be escaped first ($a → the sed append command would otherwise
+    # be expanded by bash as the empty variable $a):
+    esc = s: builtins.replaceStrings [ "\"" "$" ] [ "\\\"" "\\$" ] s;
+    tok = k: p: {
+      o = [ "@FACTOR_${k}@" "@SCALE_${k}@" "@ACCEL_${k}@" "@GTK_FONT_${k}@" "@CURSOR_${k}@"
+            "@SWAY_${k}@" "@WB_${k}@" "@MAKO_${k}@" "@GHOST_${k}@" "@OSD_${k}@" "@GTKINI_${k}@" ];
+      n = [ p.factor (toString p.gtkScale) p.accel (toString p.fonts.gtk) (toString p.cursorSeat)
+            (esc (mkSway p)) (esc (mkWaybar p)) (esc (mkMako p)) (esc (mkGhost p)) (esc (mkOsd p)) (esc (mkGtkIni p)) ];
+    };
+    all = map (k: tok k pres.${k}) [ "720" "1080" "4k" ];
+  in {
     executable = true;
+    text = builtins.replaceStrings
+      (builtins.concatLists (map (x: x.o) all))
+      (builtins.concatLists (map (x: x.n) all))
+      (builtins.readFile ./sway/scripts/set-res.sh);
   };
   xdg.configFile."sway/scripts/keys.sh" = {
     source = ./sway/scripts/keys.sh;
@@ -397,17 +475,27 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
 
   # swayosd: 2x-scale OSD (volume/brightness popup) — doubles margin/progress/
   # font/icon via the style.css swayosd auto-loads (utils.rs user_style_path).
-  xdg.configFile."swayosd/style.css".source = ./swayosd/style.css;
+  # force: set-res.sh rewrites this at runtime (F10/F11/F12) — reset to base
+  # without backing up (same .bak-collision reason as sway/config).
+  xdg.configFile."swayosd/style.css" = {
+    force = true;
+    source = ./swayosd/style.css;
+  };
 
   # Waybar config
-  xdg.configFile."waybar/config.jsonc".text =
-    builtins.replaceStrings
+  # force: set-res.sh rewrites both waybar files at runtime (F10/F11/F12) —
+  # reset to base without backing up (see ghostty/config comment).
+  xdg.configFile."waybar/config.jsonc" = {
+    force = true;
+    text = builtins.replaceStrings
       [ "\"icon-size\": 28," "\"spacing\": 10" ]
       [ ("\"icon-size\": " + toString sizing.bar.iconSize + ",")
         ("\"spacing\": " + toString sizing.bar.spacing) ]
       (builtins.readFile ./waybar/config.jsonc);
-  xdg.configFile."waybar/style.css".text =
-    builtins.replaceStrings
+  };
+  xdg.configFile."waybar/style.css" = {
+    force = true;
+    text = builtins.replaceStrings
       [ "font-family: \"Cousine Nerd Font\", sans-serif;"
         "font-size: 36px;"
         "min-width: 56px;"
@@ -419,6 +507,7 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
         theme.palette.bg theme.palette.fg theme.palette.fgDim theme.palette.blue theme.palette.red theme.palette.yellow
       ]
       (builtins.readFile ./waybar/style.css);
+  };
 
   # Kanshi config
   xdg.configFile."kanshi/config".source = ./kanshi/config;
@@ -440,14 +529,19 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     };
   };
 
-  xdg.configFile."gtk-3.0/settings.ini".text = ''
-    [Settings]
-    gtk-theme-name=${theme.gtkTheme}
-    gtk-icon-theme-name=Adwaita
-    gtk-cursor-theme-name=${theme.cursorTheme}
-    gtk-cursor-theme-size=${toString sizing.display.cursor.seat}
-    gtk-application-prefer-dark-theme=1
-  '';
+  # force: set-res.sh rewrites gtk-cursor-theme-size at runtime (F10/F11/F12) —
+  # reset to base without backing up (see ghostty/config comment).
+  xdg.configFile."gtk-3.0/settings.ini" = {
+    force = true;
+    text = ''
+      [Settings]
+      gtk-theme-name=${theme.gtkTheme}
+      gtk-icon-theme-name=Adwaita
+      gtk-cursor-theme-name=${theme.cursorTheme}
+      gtk-cursor-theme-size=${toString sizing.display.cursor.seat}
+      gtk-application-prefer-dark-theme=1
+    '';
+  };
 
   # pavucontrol is a plain GTK4 app (gtkmm4, no libadwaita). GTK4 DOES honor the
   # GTK_THEME env var — but gruvbox-dark ships NO gtk-4.0 theme, so the session's

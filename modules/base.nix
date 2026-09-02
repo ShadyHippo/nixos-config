@@ -72,12 +72,23 @@ in
     wl-clipboard                  # wayland copy/paste
     pavucontrol                   # per-app volume
     # blueman: 2x-scaled via GDK_SCALE — blueman is GTK3 so QT_SCALE_FACTOR
-    # ignores it. Wrapped at package level so BOTH launch paths scale: $mod+b and
-    # the tray icon's "Bluetooth Manager" menu item. GDK_BACKEND=x11 (XWayland) is
-    # required: GTK3's Wayland backend ignores GDK_SCALE (verified).
+    # ignores it. GDK_BACKEND=x11 (XWayland) is required: GTK3's Wayland backend
+    # ignores GDK_SCALE (verified). The manager is wrapped in a shim that reads
+    # the scale from ~/.config/sway/preset (written by set-res.sh on every
+    # F10/F11/F12 switch), defaulting to the 4K scale — so BOTH launch paths
+    # ($mod+b and the tray icon) match whatever resolution is active.
     (blueman.overrideAttrs (old: {
       postFixup = (old.postFixup or "") + ''
-        wrapProgram $out/bin/blueman-manager --set GDK_BACKEND x11 --set GDK_SCALE ${toString sizing.display.gtk.blueman}
+        mv $out/bin/blueman-manager $out/bin/.blueman-manager-real
+        cat > $out/bin/blueman-manager <<'SHIM'
+        #!/bin/sh
+        # GDK_SCALE from the resolution preset (set-res.sh), fallback = 4K scale.
+        [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
+        export GDK_BACKEND=x11
+        export GDK_SCALE="''${SCALE:-${toString sizing.display.gtk.blueman}}"
+        exec "$(dirname "$0")/.blueman-manager-real" "$@"
+        SHIM
+        chmod +x $out/bin/blueman-manager
       '';
     }))
     joycond                       # Joy-Con pair daemon (combines L+R into one pad)
