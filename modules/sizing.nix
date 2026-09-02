@@ -63,14 +63,22 @@ rec {
   # ── RUNTIME PRESETS ($mod+F10/11/12 → 720p/1080p/4K) ──
   # The panel physically upscales the 720p/1080p framebuffers to 3840×2160
   # (the iGPU composites at the low res, the fixed scaler upscales), so every
-  # framebuffer px is 2 or 3 physical px. Halving/thirding every px keeps UI
-  # physically IDENTICAL on the glass (factor = framebuffer width / 3840).
+  # framebuffer px is 2 or 3 physical px. Dimensions (cursors, accel, popup
+  # offsets, bar/mako/OSD sizes) are halved/thirded so they stay physically
+  # identical; FONTS are user-tuned per preset instead — see the note below.
   # set-res.sh is built from THIS table at config time. `accel` is the only
   # tuned (non-derived) value — libinput's mapping isn't linear, tweak per
-  # preset. Round-half-up via integer math (no builtins.round needed):
+  # preset. Round-half-up via integer math (no builtins.round needed). NOTE:
+  # fonts are deliberately NOT half/thirded anymore — the user found the
+  # halved/thirded text too small/grainy on the upscaled panel, so fonts use
+  # user-tuned ratios (1080p = 11pt, 720p = 10pt ghostty = ×11/18, ×10/18 of
+  # the 4K baseline). Physical size is no longer identical across presets.
   presets = let
     hd = x: (x + 1) / 2;             # ×½
     td = x: (2 * x + 3) / 6;         # ×⅓ → nearest int
+    fscale = { num, den }: base: (base * num + den / 2) / den; # ≈ ×num/den, round-half-up
+    f1080  = fscale { num = 11; den = 18; };                   # ghostty 18 → 11
+    f720   = fscale { num = 10; den = 18; };                   # ghostty 18 → 10
     mk = f: {
       factor     = f.factor;                       # shown in the switch toast
       mode       = f.mode;                         # sway output mode; "native" = reload restores EDID
@@ -112,9 +120,9 @@ rec {
     "720" = mk {
       factor = "1/3"; mode = "mode --custom 1280x720 scale 1"; gtkScale = td 2; accel = "0.2";
       titlebar = td titlebarPadding; cursorSeat = td display.cursor.seat;
-      fonts = { sway = td font.points.sway; waybar = td font.points.waybar;
-                mako = td font.points.mako; ghostty = td font.points.ghostty;
-                gtk = td 18; osd = td 40; };
+      fonts = { sway = f720 font.points.sway; waybar = f720 font.points.waybar;
+                mako = f720 font.points.mako; ghostty = f720 font.points.ghostty;
+                gtk = f720 18; osd = f720 40; };
       bar = { height = td 44; iconSize = td bar.iconSize; spacing = td bar.spacing;
               fontMinWidth = td bar.fontMinWidth; };
       mako = { margin = td makoMargin; padding = td makoPadding; border = td makoBorder; };
@@ -126,9 +134,9 @@ rec {
     "1080" = mk {
       factor = "1/2"; mode = "mode --custom 1920x1080 scale 1"; gtkScale = hd 2; accel = "0.3";
       titlebar = hd titlebarPadding; cursorSeat = hd display.cursor.seat;
-      fonts = { sway = hd font.points.sway; waybar = hd font.points.waybar;
-                mako = hd font.points.mako; ghostty = hd font.points.ghostty;
-                gtk = hd 18; osd = hd 40; };
+      fonts = { sway = f1080 font.points.sway; waybar = f1080 font.points.waybar;
+                mako = f1080 font.points.mako; ghostty = f1080 font.points.ghostty;
+                gtk = f1080 18; osd = f1080 40; };
       bar = { height = hd 44; iconSize = hd bar.iconSize; spacing = hd bar.spacing;
               fontMinWidth = hd bar.fontMinWidth; };
       mako = { margin = hd makoMargin; padding = hd makoPadding; border = hd makoBorder; };

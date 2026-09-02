@@ -4,10 +4,11 @@
 #
 # The panel (Sharp 0x148D) exposes only ONE EDID mode (3840x2160@59997); sub-4K
 # modes composite on the iGPU and the fixed-function scaler upscales to native.
-# So every framebuffer px is 2 (1080p) or 3 (720p) physical px: at 1080p a 36px
-# waybar font would render as 72 physical px. This script halves/thirds fonts,
-# cursors, mouse accel and popup offsets so the UI is the SAME PHYSICAL SIZE at
-# every preset — desktop output scale stays 1.0 everywhere.
+# So every framebuffer px is 2 (1080p) or 3 (720p) physical px. Cursors, mouse
+# accel and popup offsets are halved/thirded to keep them the same physical
+# size; FONTS are deliberately NOT (1080p = 11pt, 720p = 10pt ghostty, tuned in
+# modules/sizing.nix `presets`) — sized for readability on the grainy upscaled
+# panel, not physical identity. Desktop output scale stays 1.0 everywhere.
 #
 # All numbers are baked from modules/sizing.nix (presets) at config time — edit
 # sizing.nix, home-manager switch, then re-press the key. This script only
