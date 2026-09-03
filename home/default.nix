@@ -32,6 +32,7 @@ in
 
     kdePackages.dolphin
     dolphin-emu            # GameCube/Wii emulator
+    mupen64plus            # N64 emulator
     # snes9x-gtk 1.63 in the 26.05 pin fails to build (jma target missing
     # 'target_compile_definitions(jma PRIVATE ${DEFINES})' -> unzip.h not
     # found). Patched with upstream PR #1033 (merged 2026-03-21).
@@ -57,6 +58,11 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
     # scripts/build_db.py for thumbnail resize (--thumb 128) + WebP encoding
     imagemagick
     libwebp
+  ];
+
+  # Flatpak (managed via nix-flatpak module)
+  services.flatpak.packages = [
+    "net.retrodeck.retrodeck"
   ];
 
   # Cursor: bigger + a real theme (default is a tiny X cursor)
@@ -188,6 +194,16 @@ target_compile_definitions(jma PRIVATE ''${DEFINES})'
   programs.zsh = {
     enable = true;
     enableCompletion = true;
+    history = {
+      path = "$HOME/.config/zsh/.zsh_history";
+      size = 50000;
+      save = 50000;
+      ignoreDups = true;
+      ignoreAllDups = true;
+      ignoreSpace = true;
+      findNoDups = true;
+      share = true;
+    };
     plugins = [
       {
         name = "fzf-tab";

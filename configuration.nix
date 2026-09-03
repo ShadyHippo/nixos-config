@@ -70,6 +70,8 @@ in
   # Enable CUPS to print documents.
   # services.printing.enable = true;
 
+  services.flatpak.enable = true;
+
   programs.firefox.enable = false;
 
   # zsh: sets the login shell + nix dirs on PATH for users whose shell is zsh.

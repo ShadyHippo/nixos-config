@@ -67,6 +67,8 @@ in
     pciutils usbutils lshw        # hardware poking
     powertop                      # diagnostics ONLY - TLP does the writing (your rule)
     lm_sensors                    # `sensors` - real temp/fan readings (btop + debugging)
+    stress-ng                     # CPU/RAM stress testing (undervolt validation)
+    glmark2                       # GPU stress testing (use --backend=wayland)
     brightnessctl                 # screen backlight (bound to XF86 keys in sway)
     grim                          # screenshots (slurp lives in configuration.nix - overridden there with the -x crosshair/cursor-hide patches)
     wl-clipboard                  # wayland copy/paste

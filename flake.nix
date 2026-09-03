@@ -15,6 +15,10 @@
       url = "github:youwen5/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nix-flatpak = {
+      url = "github:gmodena/nix-flatpak";
+    };
   };
 
   outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, ... }@inputs:
@@ -48,11 +52,15 @@
 	  {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
+            home-manager.extraSpecialArgs = { inherit inputs; };
             # Without a backup extension, HM aborts the whole file activation
             # if a target exists as a real file (fcitx5's own profile did this).
             home-manager.backupFileExtension = "bak";
             home-manager.users.hippo = {
-	      imports = [./home];
+	      imports = [
+                ./home
+                inputs.nix-flatpak.homeManagerModules.nix-flatpak
+              ];
 
 	      _module.args.unstable = import nixpkgs-unstable {
                 inherit system;

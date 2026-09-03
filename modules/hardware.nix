@@ -42,7 +42,7 @@
   # the init.d boot script, AND manual re-apply after suspend (built-in).
   #
   # Values verified live via `sudo intel-undervolt read` on Debian (Aug 2026):
-  #   effective core/cache = -130mV (old conf's CPU:-750 was inert; hardware
+  #   effective core/cache = -150mV (old conf's CPU:-750 was inert; hardware
   #   applies the LESS-negative of core/cache), GPU = -150mV.
   # Power limits match your old config exactly: 45W burst / 35W sustained.
   #
@@ -55,7 +55,7 @@
   #   sudo undervolt read
   services.undervolt = {
     enable = true;
-    coreOffset = -130;
+    coreOffset = -150;
     gpuOffset = -150;
     p1.limit = 35;       # sustained (PL1)
     p1.window = 28;
