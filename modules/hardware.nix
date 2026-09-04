@@ -33,6 +33,25 @@
   # This machine throttles badly under load (per ArchWiki); thermald helps.
   services.thermald.enable = true;
 
+  # ---- Dell thermal profile: "performance" ----------------------------------
+  # Kernel 6.x exposes Dell Power Manager's thermal modes (cool/quiet/balanced/
+  # performance) via /sys/firmware/acpi/platform_profile. `performance` is the
+  # EC's most aggressive fan curve; unlike `quiet`/`cool` it does NOT cap CPU
+  # power. Verified live 2026-09-03 on BIOS 1.31.0. The firmware may boot back
+  # into `balanced`, so re-assert it on every boot (idempotent write).
+  systemd.services.dell-fan-performance = {
+    wantedBy = [ "multi-user.target" ];
+    after = [ "multi-user.target" ];
+    serviceConfig.Type = "oneshot";
+    script = ''
+      for i in $(seq 1 20); do
+        [ -e /sys/firmware/acpi/platform_profile ] && break
+        sleep 0.5
+      done
+      echo performance > /sys/firmware/acpi/platform_profile
+    '';
+  };
+
   # Intel microcode — Spectre/Meltdown mitigations + general CPU stability.
   # Installs into initrd so patches are active from the earliest boot stage.
   hardware.cpu.intel.updateMicrocode = true;
