@@ -20,19 +20,12 @@ in
     ];
   };
 
-  # ---- Login: greetd + regreet (GTK4, Wayland-native, background image) -------
-  # ReGreet runs under Cage (a minimal Wayland compositor) as the greeter. The
-  # module writes /etc/greetd/regreet.toml from `programs.regreet.settings` and
-  # auto-injects the [GTK] section from the theme/font icon opts below.
-  # ReGreet ITSELF launches the user's session (sway) after auth — it reads the
-  # real desktop session from /usr/share/wayland-sessions, so sway must be a
-  # registered session (programs.sway.enable does that). Default user = hippo:
-  # it's the only enabled normal user, so it's the dropdown's entry.
+  # Login: greetd + regreet. ReGreet runs under Cage (minimal Wayland
+  # compositor) and launches sway after auth. Default user = hippo.
   programs.regreet = {
     enable = true;
-    # Background = the gruvbox snow-hillside wallpaper. ReGreet runs as the
-    # "greeter" user, which can't read /home/hippo, so the image is installed
-    # to /etc/greetd (world-readable) via environment.etc below.
+    # Wallpaper installed to /etc/greetd (world-readable) because the greeter
+    # user can't read /home/hippo.
     settings = {
       background.path = "/etc/greetd/greeter.jpg";
       background.fit = "Cover";
@@ -55,10 +48,7 @@ in
   # dconf backing store (GTK dark-mode preference lives here via home-manager)
   programs.dconf.enable = true;
 
-  # ---- Input method: fcitx5 + Simplified Pinyin ------------------------------
-  # Profile preseeded in home/default.nix -> Ctrl+Super+A toggles EN/Pinyin
-  # from first login, no fcitx5-configtool trip. waylandFrontend uses the
-  # native Wayland IM protocol (correct under sway, no GTK_IM_MODULE hacks).
+  # fcitx5 + Simplified Pinyin. waylandFrontend uses native Wayland IM protocol.
   i18n.inputMethod = {
     enable = true;
     type = "fcitx5";
@@ -69,16 +59,14 @@ in
   };
 
   # ---- GTK apps: gruvbox ---------------------------------------------------
-  # Qt apps are themed system-wide by the `qt` module (configuration.nix):
-  # kvantum Gruvbox-Dark for Qt5+Qt6 - one style, no per-app hacks.
-  # Here we only handle the GTK side.
+  # Qt apps are themed system-wide by the `qt` module (configuration.nix).
+  # Here we handle the GTK side.
   environment.systemPackages = [
-    pkgs.adwaita-icon-theme   # GTK/tray icons (fcitx's tray item was broken - no Adwaita theme present)
+    pkgs.adwaita-icon-theme   # GTK/tray icons
     pkgs.gruvbox-dark-gtk     # GTK apps (blueman, nm-applet, portals) in gruvbox
-    pkgs.gruvbox-kvantum      # Kvantum Qt theme (Gruvbox-Dark-Brown) for non-KDE Qt apps
+    pkgs.gruvbox-kvantum      # Kvantum Qt theme (Gruvbox-Dark-Brown)
   ];
   # GTK3/4 apps (blueman, nm-applet, portals): force the gruvbox theme.
-  # dconf color-scheme=prefer-dark (home) also set, belt and suspenders.
   environment.variables.GTK_THEME = theme.gtkTheme;
 
   # ---- Portals (screenshare/file dialogs under Wayland) ----------------------
@@ -90,9 +78,8 @@ in
 
   # ---- Fonts ------------------------------------------------------------------
   fonts.packages = with pkgs; [
-    # Cousine Nerd Font (terminal/editor font). Pinned to nixos-unstable (3.5.0):
-    # the 26.05 branch ships 3.4.0, whose Material Design Icons block stops at
-    # \uEFCE — so \uEFCF (a volume glyph) is missing. 3.5.0 fixed the block.
+  # Cousine Nerd Font: pinned to unstable (3.5.0) for the complete MDI glyph
+  # block — 26.05's 3.4.0 is missing a volume glyph.
     unstable.nerd-fonts.cousine
     noto-fonts-cjk-sans           # required for Pinyin IME candidate window / hanzi
     noto-fonts-color-emoji

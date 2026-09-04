@@ -8,8 +8,8 @@ in
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Kernel modules we never want loaded. nouveau is known to panic on the 9570,
-  # and nothing should ever touch the GTX 1050 Ti (see modules/hardware.nix).
+  # Kernel modules blacklisted: nouveau panics on 9570; nothing should touch
+  # the GTX 1050 Ti (see modules/hardware.nix).
   boot.blacklistedKernelModules = [
     "nouveau" "rivafb" "nvidiafb" "rivatv" "nv"
     "nvidia" "nvidia-drm" "nvidia-modeset" "nvidia-uvm"
@@ -73,12 +73,9 @@ in
     grim                          # screenshots (slurp lives in configuration.nix - overridden there with the -x crosshair/cursor-hide patches)
     wl-clipboard                  # wayland copy/paste
     pavucontrol                   # per-app volume
-    # blueman: 2x-scaled via GDK_SCALE — blueman is GTK3 so QT_SCALE_FACTOR
-    # ignores it. GDK_BACKEND=x11 (XWayland) is required: GTK3's Wayland backend
-    # ignores GDK_SCALE (verified). The manager is wrapped in a shim that reads
-    # the scale from ~/.config/sway/preset (written by set-res.sh on every
-    # F10/F11/F12 switch), defaulting to the 4K scale — so BOTH launch paths
-    # ($mod+b and the tray icon) match whatever resolution is active.
+  # blueman: GTK3 ignores GDK_SCALE on Wayland, so it's forced onto XWayland
+  # via GDK_BACKEND=x11. A wrapper shim reads the scale from the resolution
+  # preset (set-res.sh), defaulting to the 4K scale.
     (blueman.overrideAttrs (old: {
       postFixup = (old.postFixup or "") + ''
         mv $out/bin/blueman-manager $out/bin/.blueman-manager-real

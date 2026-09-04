@@ -9,45 +9,28 @@ let
   sizing = import ./modules/sizing.nix;    # fonts/scales/layout → edit for other screens
 in
 {
-  # Reach the X11/XWayland apps (Discord/Signal) too: sway's seat only themes
-  # Wayland clients; libXcursor needs the env vars + the ~/.icons/default
-  # inherit set up in home/default.nix.
+  # X11/XWayland cursor: sway only themes Wayland clients; libXcursor needs
+  # the env vars + the ~/.icons/default inherit set up in home/default.nix.
   environment.variables = {
     XCURSOR_THEME = theme.cursorTheme;
     XCURSOR_SIZE = toString sizing.display.cursor.env;
-    # 4K@scale 1: Qt apps otherwise render at logical size. Global 1.5x (this
-    # replaces the old per-app moonlight QT_SCALE_FACTOR wrapper - one env var
-    # scales Dolphin, moonlight, kid3 and vlc alike). 2x was too large; 1.5x is
-    # the sweet spot. Value lives in modules/sizing.nix (display.qt).
+    # Qt apps render at logical size on 4K@scale 1. Scales Dolphin, Moonlight,
+    # kid3, VLC alike. Value lives in modules/sizing.nix (display.qt).
     QT_SCALE_FACTOR = toString sizing.display.qt;
   };
 
-  # gsettings schemas for login shells: the nix profile injects the per-package
-  # XDG_DATA_DIRS entries when a profile.d is sourced, but sway's session
-  # (regreet) never sources it — set-res.sh handles sway's env via
-  # GSETTINGS_SCHEMA_DIR instead. This line just makes the schemas reachable
-  # for any other consumer that does source /etc/profile.
+  # gsettings schemas: regreet never sources profile.d, so GSETTINGS_SCHEMA_DIR
+  # must be set explicitly for sway's env. This line covers other consumers that
+  # do source /etc/profile.
   environment.sessionVariables.XDG_DATA_DIRS =
     [ "${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/gsettings-desktop-schemas-${pkgs.gsettings-desktop-schemas.version}" ];
 
-  # ---- Qt theming (kvantum for BOTH Qt5 & Qt6, gruvbox) ------------------
-  # The nix `qt` module installs qtstyleplugin-kvantum for both Qt5 and Qt6
-  # (theme engine available in BOTH versions - the cross-version trick) and
-  # sets QT_PLUGIN_PATH for qt-5 AND qt-6 plugin dirs, so ONE
-  # QT_STYLE_OVERRIDE=kvantum themes every Qt app regardless of version
-  # (vlc=Qt5, moonlight/Dolphin=Qt6). Gruvbox-Dark-Brown theme is selected in
-  # ~/.config/Kvantum/kvantum.kvconfig (home/default.nix). Kvantum paints all
-  # widgets from its own gruvbox theme - no per-app carve-outs needed.
-  #
-  # platformTheme="kde" is REQUIRED: without a platform theme, KDE apps never
-  # read ~/.local/share/color-schemes/GruvboxDark.colors, so their PALETTE
-  # (file-list background, alternate rows, status bar, text) falls back to
-  # Qt's default LIGHT scheme -> white zebra stripes and unreadable text.
-  # platformTheme=kde sets QT_QPA_PLATFORMTHEME=kde and pulls in
-  # kdePackages.plasma-integration (the KDE platform-theme plugin), which makes
-  # Dolphin & friends load the gruvbox color scheme + kdeglobals. kstyle paints
-  # chrome (kvantum), platformTheme drives the palette (color scheme). Both can
-  # be set together (module only asserts gnome->gnomeStyles; kde+kvantum is free).
+  # Qt theming: kvantum for both Qt5 and Qt6, gruvbox palette. The nix qt
+  # module sets QT_PLUGIN_PATH for both versions, so ONE QT_STYLE_OVERRIDE=
+  # kvantum themes every Qt app. platformTheme="kde" is required: without it,
+  # KDE apps (Dolphin) never read the gruvbox color scheme and fall back to
+  # Qt's default light palette. kstyle paints chrome, platformTheme drives
+  # the color palette — both set together works fine.
   qt = {
     enable = true;
     platformTheme = "kde";
@@ -83,12 +66,9 @@ in
     git neovim nil nodejs gcc 
     gnumake jq unzip
     ripgrep fd
+    # slurp: pinned to git master for native `-x` crosshair. Patches add font
+  # tweaks + cursor hide during snip.
     grim (slurp.overrideAttrs (old: {
-      # slurp git master (pinned rev): native `-x` crosshair that TRACKS pre-click
-      # (the seat_set_outputs_dirty fix landed upstream; nixpkgs still ships 1.5.0
-      # without it). patches/slurp-tweaks.patch = our readout tweaks (font 48,
-      # offsets 24/48) + hide the cursor during the snip (NULL wl_pointer cursor,
-      # restored automatically on exit). Hot pink comes from -c in screenshot.sh.
       src = pkgs.fetchFromGitHub {
         owner = "emersion";
         repo = "slurp";

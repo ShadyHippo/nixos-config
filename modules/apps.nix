@@ -15,9 +15,7 @@
 
     # creative
     gimp
-    # Cura: upstream went AppImage-only; this is the packaged form. Wrapped
-    # with QT_SCALE_FACTOR=1.5 — Qt6 app, on the 4K panel at sway scale 1 the
-    # UI is too small. Scoped to Cura only; other Qt apps keep scale 1.0.
+    # Cura: Qt6 app, wrapped with QT_SCALE_FACTOR=1.5 for 4K panel.
     (cura-appimage.overrideAttrs (old: {
       postFixup = (old.postFixup or "") + ''
         wrapProgram $out/bin/cura --set QT_SCALE_FACTOR 1.5
@@ -38,10 +36,8 @@
     #   python3 -m venv .venv && source .venv/bin/activate
     python3
 
-    # media conversion — my_scripts transcode stack
-    # NOTE: stock nixpkgs ffmpeg has NO HEIC demuxer (no libheif wired in),
-    # so heicToJpg's ffmpeg attempt fails and its heif-convert fallback does
-    # the real work. Free codecs only — no ffmpeg-full/nonfree needed.
+    # media conversion — heicToJpg uses heif-convert (stock ffmpeg lacks HEIC
+    # demuxer, no libheif wired in). Free codecs only.
     ffmpeg
     libheif
 

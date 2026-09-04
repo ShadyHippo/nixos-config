@@ -58,28 +58,25 @@ in
     XCURSOR_THEME = theme.cursorTheme;
   };
 
-  # Recolored Bibata from the single built package shared with regreet, so the
-  # sway session and the greeter show the SAME hot-pink cursor. home.file
-  # shadows the store copy; colors come from modules/theming.nix (accent+green).
+  # Recolored Bibata from the single built package shared with regreet, so
+  # sway session and greeter show the same cursor.
   home.file.".icons/Bibata-Modern-Classic".source =
     "${recoloredCursors}/share/icons/Bibata-Modern-Classic";
 
-  # Desktop wallpaper (gruvbox astronaut, 4K). Installed to a stable path so the
-  # sway config `output bg` (which needs an absolute path) just works.
+  # Desktop wallpaper (gruvbox astronaut, 4K) — installed to a stable path so
+  # sway's output bg (absolute path) works.
   home.file.".local/share/backgrounds/gruvbox-astronaut-4k.png".source =
     ../images/gruvbox_astronaut-4k.png;
 
-  # X11 apps (Discord/Signal = Electron on XWayland) don't get the cursor via
-  # sway's seat, they resolve it via libXcursor: ~/.icons/default must exist
-  # and inherit, otherwise they fall back to the stock X cursor.
+  # X11 apps (Electron on XWayland) resolve cursor via libXcursor —
+  # ~/.icons/default must exist and inherit.
   home.file.".icons/default/index.theme".text = ''
     [Icon Theme]
     Inherits=Bibata-Modern-Classic
   '';
 
-  # force: set-res.sh rewrites font-size at runtime (F10/F11/F12) — the file is
-  # often non-base at switch time, so HM must reset it WITHOUT backing up (a
-  # .bak would collide with the stale one from the last dirty switch).
+  # force: set-res.sh rewrites font-size at runtime; must not back up
+  # (stale .bak from a previous preset collides).
   home.file.".config/ghostty/config" = {
     force = true;
     text = builtins.replaceStrings
@@ -88,14 +85,13 @@ in
       (builtins.readFile ./ghostty/config);
   };
 
-  # VS Code icon: the package ships hicolor/1024x1024/apps/vscode.png but the
-  # launcher shows a blank box; pin it into the user icon theme so it resolves.
+  # VS Code icon: package ships 1024x1024 but launcher shows a blank box;
+  # pin into user icon theme so it resolves.
   home.file.".local/share/icons/hicolor/128x128/apps/vscode.png".source =
     "${pkgs.vscode}/share/icons/hicolor/1024x1024/apps/vscode.png";
 
   # fcitx5: preseed IMs (keyboard-us + Pinyin) + trigger keys. Without this the
-  # profile only has keyboard-us, so the tray shows "input" and clicking it does
-  # nothing. Restart fcitx5 after switching (relogin or `fcitx5 -d --replace`).
+  # tray shows "input" and clicking it does nothing. Restart after switching.
   xdg.configFile."fcitx5/profile".text = ''
     [Profile]
     EnabledIMList=pinyin:False,keyboard-us:True
@@ -124,14 +120,8 @@ in
     0=Default
   '';
 
-  # KeyList is comma-separated (fcitx5 source, globalconfig.cpp). The ONE
-  # IME toggle is $mod+Shift+t (= Super+Shift+t, "Text"): sway's bindsym
-  # catches it first (fcitx5-remote -t) and consumes the key, so this
-  # TriggerKeys never double-fires — kept in sync so no other combo works.
-  # Ctrl+Space dropped - VS Code uses it for IntelliSense, and unreliable
-  # in some apps anyway.
-  # ShareInputState=All makes the IM state GLOBAL (not per-app; default No).
-  # Enum verified in fcitx5 globalconfig.cpp BehaviorConfig.
+  # fcitx5 config: TriggerKeys = Super+Shift+t. ShareInputState=All makes
+  # IM state global (not per-app).
   xdg.configFile."fcitx5/config".text = ''
     [Hotkey]
     TriggerKeys=Super+Shift+t
@@ -140,10 +130,7 @@ in
     ShareInputState=All
   '';
 
-  # fcitx5 UI is sized off the Classic UI font (default "Sans 10" per
-  # classicui.h). On 4K@scale 1 that renders ~10px. Doubled to 20 for the
-  # candidate window, tray menu, and tray label (flat INI, no [General]
-  # section). Restart fcitx5 after switching (relogin or `fcitx5 -d --replace`).
+  # fcitx5 UI font — doubled from default 10pt for 4K@scale 1.
   xdg.configFile."fcitx5/conf/classicui.conf".text = ''
     Font=Sans 24
     MenuFont=Sans 24
@@ -151,8 +138,7 @@ in
   '';
 
   xdg.configFile."fuzzel/fuzzel.ini".source = ./fuzzel/fuzzel.ini;
-  # force: set-res.sh rewrites this at runtime (F10/F11/F12) — reset to base
-  # without backing up (see ghostty/config comment for the .bak collision).
+  # force: set-res.sh rewrites at runtime; must not back up (stale .bak).
   xdg.configFile."mako/config" = {
     force = true;
     text = builtins.replaceStrings
@@ -168,15 +154,13 @@ in
       (builtins.readFile ./mako/config);
   };
 
-  # fastfetch (neofetch drop-in): no config override — uses pure defaults,
-  # which auto-detects + prints the NixOS logo. My earlier custom config
-  # disabled the logo with "type":"none". Remove it to get the logo back.
+  # fastfetch: no config override, uses defaults (auto-detects NixOS logo).
 
   # pinyin ready at login ($mod+Shift+t)
   programs.bash.enable = true;
 
   # ---------------------------------------------------------------------------
-  # Shell: zsh — fzf-tab fuzzy completion on <Tab>, fzf history on <Ctrl+R>, bare prompt
+  # Shell: zsh — fzf-tab fuzzy completion on <Tab>, fzf history on <Ctrl+R>
   # ---------------------------------------------------------------------------
   programs.zsh = {
     enable = true;
@@ -199,7 +183,7 @@ in
       }
     ];
     initContent = ''
-      # ---- fzf-tab: <Tab> opens a fuzzy finder for the current directory ----
+  # fzf-tab: <Tab> opens a fuzzy finder for the current directory
       zstyle ':completion:*' menu no
       zstyle ':fzf-tab:*' switch-group '<' '>'
 
@@ -212,7 +196,7 @@ in
       zstyle ':fzf-tab:complete:kill:argument-*' fzf-preview \
         'ps --pid=$word -o comm --no-headers 2>/dev/null || true'
 
-      # ---- lazy Ctrl+R: fuzzy history search (fzf only runs when pressed) ----
+      # ---- lazy Ctrl+R: fuzzy history search ----
       if [[ -o zle ]]; then
         _fzf_history() {
           local sel
@@ -227,7 +211,7 @@ in
         bindkey '^R' _fzf_history
       fi
 
-      # ---- bare prompt: ~/path ❯ (hot-pink), red ❯ on error, red # as root ----
+      # ---- bare prompt: ~/path ❯ (hot-pink), red ❯ on error ----
       zmodload zsh/datetime
       autoload -Uz add-zsh-hook
       _sp_dur=""
@@ -251,7 +235,7 @@ in
   };
 
   # fzf: installs the binary (fzf-tab needs it); zsh integration disabled —
-  # Ctrl+R is a lazy widget in initContent that spawns fzf only when pressed.
+  # Ctrl+R is a lazy widget that spawns fzf only when pressed.
   programs.fzf = {
     enable = true;
     enableZshIntegration = false;
@@ -335,19 +319,13 @@ in
     ];
   };
 
-  # ---------------------------------------------------------------------------
-  # Sway — plain config file, not Nix attrsets
-  # ---------------------------------------------------------------------------
+  # Sway — plain config file, not Nix attrsets. config = null prevents HM
+  # from generating its own default (which would add an i3status bar).
   wayland.windowManager.sway = {
     enable = true;
-    # config = null: full config lives in ./sway/config via extraConfig below.
-    # Setting null prevents home-manager from generating its own default
-    # config, which would spin up a second (i3status) bar alongside waybar.
     config = null;
     # The config references the wallpaper at ~/.local/share/backgrounds/...,
-    # which only exists AFTER activation — sway's build-time config check can't
-    # see it in the sandbox, so it fails. This is the documented course: skip
-    # the sandboxed check (sway still validates + applies the config at login).
+    # which only exists AFTER activation — skip the sandboxed build-time check.
     checkConfig = false;
     extraConfig = let
       pavu = sizing.popups.pavucontrol;
@@ -390,10 +368,7 @@ in
     '';
   };
 
-  # set-res.sh rewrites the installed sway config at runtime (F10/F11/F12), so
-  # hm's per-file backup collides with the stale .bak on every switch made at a
-  # non-4K preset. force = HM always resets to base, never backs up (merges
-  # with the sway module's own definition of this file).
+  # force: set-res.sh rewrites at runtime; must not back up (stale .bak).
   xdg.configFile."sway/config".force = true;
 
   # Scripts referenced from sway config
@@ -403,20 +378,14 @@ in
   };
   # set-res.sh (F10/F11/F12 resolution presets): every number baked in from
   # modules/sizing.nix (presets). The sed patterns live in the script; only the
-  # per-preset VALUES are injected here (one token set per preset). The script
-  # edits the INSTALLED configs, so its "old" patterns match any number left by
-  # the previous preset — no stale-state problem.
+  # per-preset VALUES are injected here (one token set per preset).
   xdg.configFile."sway/scripts/set-res.sh" = let
     pres = sizing.presets;
     fam  = sizing.font.family;
     curs = theme.cursorTheme;
     mkSway = p: builtins.concatStringsSep "\n" (
-      # Mode lives IN the config, not a post-reload command: on reload sway
-      # re-queues the output to the EDID preferred mode when the config has no
-      # mode line, and that deferred commit clobbers any mode set right after
-      # the reload (verified). So: delete any eDP-1 mode line, and (sub-4K
-      # presets) append our --custom one — one reload applies values + mode
-      # atomically. The 4k preset just deletes it (reload → preferred = 4K).
+    # Delete any eDP-1 mode line; (sub-4K presets) append --custom one.
+    # 4K preset just deletes (reload → preferred = EDID 4K).
       [ ( "/^output eDP-1 mode/d"
           + (if p.mode == "native" then "" else "\n$a output eDP-1 ${p.mode}") )
         "s|^font .*\\b[0-9]\\+$|font ${fam} ${toString p.fonts.sway}|"
@@ -492,18 +461,13 @@ in
       (builtins.readFile ./sway/scripts/pavucontrol-toggle.sh);
   };
 
-  # swayosd: 2x-scale OSD (volume/brightness popup) — doubles margin/progress/
-  # font/icon via the style.css swayosd auto-loads (utils.rs user_style_path).
-  # force: set-res.sh rewrites this at runtime (F10/F11/F12) — reset to base
-  # without backing up (same .bak-collision reason as sway/config).
+  # swayosd: 2x-scale OSD. force: set-res.sh rewrites at runtime.
   xdg.configFile."swayosd/style.css" = {
     force = true;
     source = ./swayosd/style.css;
   };
 
-  # Waybar config
-  # force: set-res.sh rewrites both waybar files at runtime (F10/F11/F12) —
-  # reset to base without backing up (see ghostty/config comment).
+  # Waybar config. force: set-res.sh rewrites at runtime.
   xdg.configFile."waybar/config.jsonc" = {
     force = true;
     text = builtins.replaceStrings
@@ -531,10 +495,8 @@ in
   # Kanshi config
   xdg.configFile."kanshi/config".source = ./kanshi/config;
 
-  # Global color-scheme + accent (amber) for GTK apps & portals. Cursor theme
-  # + size are set HERE (dconf/gsettings) AND in gtk-3.0/settings.ini below,
-  # because GTK3 in waybar renders its own hover cursor via settings and was
-  # falling back to the tiny black X11 default (it doesn't honor XCURSOR_THEME).
+  # Global color-scheme + accent for GTK apps & portals. Cursor theme + size
+  # set here AND in gtk-3.0/settings.ini (GTK3 in waybar needs both).
   dconf.settings = {
     "org/gnome/desktop/interface" = {
       color-scheme = "prefer-dark";
@@ -548,8 +510,7 @@ in
     };
   };
 
-  # force: set-res.sh rewrites gtk-cursor-theme-size at runtime (F10/F11/F12) —
-  # reset to base without backing up (see ghostty/config comment).
+  # force: set-res.sh rewrites at runtime.
   xdg.configFile."gtk-3.0/settings.ini" = {
     force = true;
     text = ''
@@ -562,12 +523,8 @@ in
     '';
   };
 
-  # pavucontrol is a plain GTK4 app (gtkmm4, no libadwaita). GTK4 DOES honor the
-  # GTK_THEME env var — but gruvbox-dark ships NO gtk-4.0 theme, so the session's
-  # GTK_THEME=gruvbox-dark silently fell back to the light default, and the user
-  # gtk.css only patched part of it (the patchy result). FIX: provide a real
-  # gruvbox-dark gtk-4.0 theme under ~/.local/share/themes so GTK_THEME loads it
-  # as a coherent base. Templated from the theming.nix palette.
+  # GTK4 gruvbox theme for non-libadwaita apps (pavucontrol). gruvbox-dark ships
+  # no gtk-4.0 theme, so GTK_THEME falls back to light — provide one explicitly.
   xdg.dataFile."themes/gruvbox-dark/gtk-4.0/gtk.css".text = ''
     /* Gruvbox-dark GTK4 theme (non-libadwaita apps, e.g. pavucontrol). Matches
        the gruvbox look blueman (GTK3) gets from gtk-3.0/settings.ini. */
@@ -659,10 +616,8 @@ in
     tooltip, .osd { background-color: ${pal.bgAlt}; color: ${pal.fg}; border: 1px solid ${pal.bgDim}; }
   '';
 
-  # KDE palette+font (Dolphin): KF6 loads the active palette from a .colors
-  # SCHEME FILE ("kdeglobals [General] ColorScheme") - [Colors:*] overrides in
-  # kdeglobals were silently ignored (root cause of the still-white Dolphin).
-  # GruvboxDark.colors below is the scheme; Size via [General] font.
+  # KDE palette+font (Dolphin): KF6 loads palette from a .colors scheme file
+  # via [General] ColorScheme. kdeglobals [Colors:*] overrides are ignored.
   home.file.".config/kdeglobals".text = ''
     [General]
     font=Cousine Nerd Font,18,-1,5,50,0,0,0,0,0
@@ -672,26 +627,17 @@ in
   home.file.".local/share/color-schemes/GruvboxDark.colors".source =
     ./color-schemes/GruvboxDark.colors;
 
-  # Kvantum: select the gruvbox theme for all non-KDE Qt apps (moonlight, vlc).
-  # The theme files come from pkgs.gruvbox-kvantum (systemPackages);
-  # kvantum.kvconfig just picks which variant.
+  # Kvantum: select the gruvbox theme for all non-KDE Qt apps.
+  # The theme files come from pkgs.gruvbox-kvantum (systemPackages).
   home.file.".config/Kvantum/kvantum.kvconfig".text = ''
     [General]
     theme=Gruvbox-Dark-Brown
   '';
 
-  # Kvantum THEME FILES: symlink the store theme dir into the path Kvantum
-  # actually scans (~/.config/Kvantum/, highest priority). Kvantum ignores
-  # XDG_DATA_DIRS (nixpkgs#355277), so systemPackages alone is invisible to it
-  # - that's why the chrome renders default grey, not brown/green gruvbox.
-  #
-  # Override only the .kvconfig (colors), not the .svg (chrome shapes). The
-  # stock Gruvbox-Dark-Brown [GeneralColors] hard-codes base/alt.base = #282828
-  # (no zebra striping) and a translucent brown selection, so it overrides our
-  # KColorScheme and the UI melts together. Our patched kvconfig sets the same
-  # contrast hierarchy as GruvboxDark.colors (frame #282828 / view #3c3836 /
-  # zebra #504945 / aqua selection). The .svg stays a store symlink so we don't
-  # vendor a 212KB file into the repo.
+  # Kvantum theme: symlink the store .svg + patched .kvconfig into
+  # ~/.config/Kvantum/ (Kvantum ignores XDG_DATA_DIRS, nixpkgs#355277).
+  # The stock .kvconfig hard-codes flat base colors — our patch sets proper
+  # contrast (frame #282828 / view #3c3836 / zebra #504945 / aqua selection).
   home.file.".config/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.svg".source =
     "${pkgs.gruvbox-kvantum}/share/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.svg";
   home.file.".config/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.kvconfig".source =

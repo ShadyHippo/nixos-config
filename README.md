@@ -16,24 +16,42 @@ disabled).
 - **GTK/Qt theming** — kvantum Qt + gruvbox GTK, recolored **hot-pink cursor**
   shared by session and greeter, regreet login
 - **Apps** — Ghostty, VS Code/Neovim, qalculate, Dolphin (NAS/SMB), Zen browser,
-  pavucontrol/blueman popups, Steam + Proton GE, Dolphin emulator + **joycond**
+  pavucontrol/blueman popups, Steam + Proton GE, **joycond**
   (combined Joy-Cons), fcitx5 pinyin IME
+- **Emulation** — **RetroDECK flatpak** (`net.retrodeck.retrodeck`) manages all
+  emulators (Dolphin, RetroArch, PCSX2, etc.) and their configs. ROMs, BIOS,
+  saves, and texture packs live in `~/retrodeck/`. RetroDECK has a built-in
+  Backup tool (Configurator → Data Management Tools) for portability.
 - **Hardware** — keyd caps→escape, TLP power, Intel Wi-Fi/BT firmware,
   `hid_nintendo` driver, iGPU-only rendering
 
-## Packaging: NixOS vs mise — which goes where?
+## Packaging: NixOS, mise, and flatpak — which goes where?
 
-Two package managers live here, and the split is deliberate:
+Three package managers live here, and the split is deliberate:
 
 | Concern | System |
 |---|---|
 | **The desktop itself** — kernel, services, sway, theming, desktop + system packages | **NixOS** (`modules/*`, `configuration.nix`) — declared once, rebuilds atomically |
 | **User-level dev tools you bump constantly** — `opencode`, `maki`, `yt-dlp`, `deno`, `golang` | **mise** (`home/default.nix` → `programs.mise`, tools in `mise/config.toml`) |
+| **Emulators** — Dolphin, RetroArch, PCSX2, etc. with their own config/data layout | **RetroDECK flatpak** (`net.retrodeck.retrodeck`) — declared in `home/default.nix` via nix-flatpak |
 
 The rule of thumb: **part of the environment → Nix; a tool in your toolbox
-that you update weekly and version per project → mise.** Pinning bleeding-edge
+that you update weekly and version per project → mise; an app with its own
+config universe that needs portability → flatpak.** Pinning bleeding-edge
 CLIs in the Nix closure would slow every rebuild for zero gain — mise gives
 per-tool/per-project versions without touching the system.
+
+### RetroDECK (emulation)
+
+RetroDECK is a single flatpak that wraps all emulators. Data lives in two places:
+
+| Path | Contents | Portable? |
+|---|---|---|
+| `~/retrodeck/` | ROMs, BIOS, saves, texture packs, shaders, screenshots | **Yes** — copy to NAS, restore on new PC |
+| `~/.var/app/net.retrodeck.retrodeck/config/` | Emulator configs (Dolphin, RetroArch, etc.) | Version-sensitive — use RetroDECK's built-in backup |
+
+To transfer to a new PC: RetroDECK → Configurator → Data Management Tools →
+Backup RetroDECK → save the `.tar` to NAS → install flatpak on new PC → restore.
 
 ## The point of this repo: make it *yours* in two files
 
@@ -114,11 +132,9 @@ font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
 
 ### Focus, move & splits — vim directions
 
-`$mod+h/j/k/l` = focus left/down/up/right (**`$mod+h` is *not* split** — it was
-rebound when focus went vim; arrows work too). Move windows with
-`$mod+Shift+h/j/k/l`. Consequences: `$mod+semicolon` = horizontal split, and
-`$mod+v` = vertical split (stock). The resize mode (`$mod+r`) also uses vim
-keys.
+`$mod+h/j/k/l` = focus left/down/up/right (arrows work too). Move windows with
+`$mod+Shift+h/j/k/l`. `$mod+semicolon` = horizontal split, `$mod+v` = vertical
+split (stock). The resize mode (`$mod+r`) also uses vim keys.
 
 ### Hardware keys & other bindings
 
@@ -146,18 +162,3 @@ home/
   default.nix           # home-manager: shells, scripts, dotfiles wiring
   sway/ waybar/ mako/ ghostty/ fuzzel/ kanshi/ swayosd/ cursor/ kvantum/
 ```
-
-## Public-repo hygiene
-
-- No secrets in the tree: only a commented-out example proxy line.
-- `cont_maki.sh` (a maki session helper) is gitignored; it existed in early
-  commits, so if you want it gone from *history* too, purge with
-  `git filter-repo` (rewrites SHAs — one-time, then force-push).
-- Screenshots live in `images/` — replace `desktop-screenshot-1.png` to taste.
-
-## Roadmap-ish (deliberately small)
-
-- `home/swayosd/style.css` still holds its px values literally (follows
-  `sizing.nix`'s `display.osd` — bump them together); converting it to a fully
-  generated file is optional.
-- Neovim + VS Code ship stock configs; a real nvim setup is future work.

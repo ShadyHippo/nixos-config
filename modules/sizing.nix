@@ -26,11 +26,10 @@ rec {
   # ── DISPLAY / SCALING ──
   display = {
     scale  = 1;               # sway output scale — 1 on the 4K panel
-    qt     = 1.5;             # global QT_SCALE_FACTOR (Dolphin, moonlight, VLC…). Was 2.0 → too large
+    qt     = 1.5;             # global QT_SCALE_FACTOR (Dolphin, Moonlight, VLC…)
     gtk    = {
-      # GDK_SCALE per-GTK-app (integers only). IMPORTANT: GTK3's Wayland
-      # backend IGNORES GDK_SCALE (verified: same window size either way) —
-      # both apps are forced onto XWayland via GDK_BACKEND=x11, where it works.
+      # GTK3's Wayland backend ignores GDK_SCALE — both apps are forced onto
+      # XWayland via GDK_BACKEND=x11, where it works.
       blueman     = 2;            # via blueman package wrapper (both launch paths)
       pavucontrol = 2;            # via pavucontrol-toggle.sh launch
     };
@@ -61,18 +60,10 @@ rec {
   makoBorder      = 2;    # notification border px
 
   # ── RUNTIME PRESETS ($mod+F10/11/12 → 720p/1080p/4K) ──
-  # The panel physically upscales the 720p/1080p framebuffers to 3840×2160
-  # (the iGPU composites at the low res, the fixed scaler upscales), so every
-  # framebuffer px is 2 or 3 physical px. Dimensions (cursors, accel, popup
-  # offsets, bar/mako/OSD sizes) are halved/thirded so they stay physically
-  # identical; FONTS are user-tuned per preset instead — see the note below.
-  # set-res.sh is built from THIS table at config time. `accel` is the only
-  # tuned (non-derived) value — libinput's mapping isn't linear, tweak per
-  # preset. Round-half-up via integer math (no builtins.round needed). NOTE:
-  # fonts are deliberately NOT half/thirded anymore — the user found the
-  # halved/thirded text too small/grainy on the upscaled panel, so fonts use
-  # user-tuned ratios (1080p = 11pt, 720p = 10pt ghostty = ×11/18, ×10/18 of
-  # the 4K baseline). Physical size is no longer identical across presets.
+  # The panel physically upscales 720p/1080p to 3840×2160 (fixed scaler), so
+  # every framebuffer px is 2 or 3 physical px. Dimensions are halved/thirded
+  # to stay physically identical; fonts use user-tuned ratios (not geometric).
+  # set-res.sh is built from this table. `accel` is the only tuned value.
   presets = let
     hd = x: (x + 1) / 2;             # ×½
     td = x: (2 * x + 3) / 6;         # ×⅓ → nearest int

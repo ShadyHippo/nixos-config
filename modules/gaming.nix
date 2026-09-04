@@ -12,10 +12,8 @@
   # udev rules for Steam controllers / VR gear
   hardware.steam-hardware.enable = true;
 
-  # joycond: combine two Joy-Cons into one virtual pad (Dolphin etc.).
-  # Root daemon; talks to BlueZ over D-Bus, so start after bluetoothd.
-  # Bluedevil bridging: works whether or not BT is powered on at boot —
-  # it just watches for Joy-Cons to connect.
+  # joycond: combine two Joy-Cons into one virtual pad. Root daemon, talks to
+  # BlueZ over D-Bus — starts after bluetoothd.
   systemd.services.joycond = {
     description = "Joy-Con pairing daemon";
     wantedBy = [ "multi-user.target" ];
@@ -27,5 +25,5 @@
     };
   };
 
-  # Games render entirely on the Intel iGPU - the 1050 Ti stays off.
+  # Games render entirely on the Intel iGPU.
 }

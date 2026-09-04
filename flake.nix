@@ -30,8 +30,8 @@
         inherit system;
         specialArgs = {
           inherit inputs;
-          # Unstable nixpkgs for system modules too (nerd-fonts 3.5.0 has the
-          # \uEFCF MDI glyph that the 26.05 branch's 3.4.0 is missing).
+          # Unstable nixpkgs for system modules (nerd-fonts 3.5.0+ needed for
+          # complete Material Design Icons glyph block).
           unstable = import nixpkgs-unstable {
             inherit system;
             config.allowUnfree = true;
@@ -53,8 +53,8 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.extraSpecialArgs = { inherit inputs; };
-            # Without a backup extension, HM aborts the whole file activation
-            # if a target exists as a real file (fcitx5's own profile did this).
+            # Backup extension: HM aborts activation if a target exists as a
+            # real file (fcitx5's profile did this).
             home-manager.backupFileExtension = "bak";
             home-manager.users.hippo = {
 	      imports = [

@@ -2,9 +2,7 @@
 
 {
   # ---- Brother MFC-J6555DW — network print + scan ----------------------------
-  # PRINT: generic Brother driver (brgenml1lpr + cupswrapper) covers this
-  # inkjet. NOTE: brlaser is MONO-LASER-ONLY and does NOT work with inkjets —
-  # don't add it "for good measure".
+  # brlaser is mono-laser-only and does NOT work with inkjets.
   services.printing = {
     enable = true;
     drivers = [
@@ -13,8 +11,7 @@
     ];
   };
 
-  # SCAN: brscan5 SANE backend + the network device. The scanner is reached
-  # over the LAN, so register it in netDevices (ip OR nodename = BRW<MAC>).
+  # SCAN: brscan5 SANE backend. Scanner reached over LAN.
   # Verify after rebuild with: scanimage -L
   hardware.sane = {
     enable = true;
@@ -25,13 +22,12 @@
     };
   };
 
-  # Scan + print GUIs (sway desktop): printer admin and scanner frontends.
+  # Scan + print GUIs
   environment.systemPackages = with pkgs; [
     system-config-printer    # CUPS admin GUI (add/configure printers)
     simple-scan              # scanner GUI
   ];
 
-  # mDNS so CUPS/avahi discover the printer on the LAN; also lets us resolve
-  # its address as `<hostname>.local`.
+  # mDNS so CUPS/avahi discover the printer on the LAN.
   services.avahi.enable = true;
 }
