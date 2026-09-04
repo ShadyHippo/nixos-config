@@ -28,5 +28,4 @@
   };
 
   # Games render entirely on the Intel iGPU - the 1050 Ti stays off.
-  # Dolphin (GameCube/Wii) is installed user-level; see home/default.nix.
 }

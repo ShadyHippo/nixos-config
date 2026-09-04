@@ -31,19 +31,6 @@ in
     nwg-displays           # GUI monitor arranger — SESSION-ONLY, never saved (kanshi is durable)
 
     kdePackages.dolphin
-    dolphin-emu            # GameCube/Wii emulator
-    mupen64plus            # N64 emulator
-    # snes9x-gtk 1.63 in the 26.05 pin fails to build (jma target missing
-    # 'target_compile_definitions(jma PRIVATE ${DEFINES})' -> unzip.h not
-    # found). Patched with upstream PR #1033 (merged 2026-03-21).
-    (snes9x-gtk.overrideAttrs (old: {
-      postPatch = (old.postPatch or "") + ''
-        substituteInPlace gtk/CMakeLists.txt \
-          --replace-fail 'target_compile_options(jma PUBLIC ''${ARGS})' \
-                        'target_compile_options(jma PUBLIC ''${ARGS})
-target_compile_definitions(jma PRIVATE ''${DEFINES})'
-      '';
-    }))                 # SNES emulator (GTK UI)
 
     swayosd                 # volume/brightness OSD popups (server autostarted in sway)
     libpulseaudio            # pactl, for low-level audio control
