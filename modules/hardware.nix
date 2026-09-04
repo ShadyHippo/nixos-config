@@ -60,22 +60,11 @@
   # NixOS's services.undervolt replaces: /etc/intel-undervolt.conf edits,
   # the init.d boot script, AND manual re-apply after suspend (built-in).
   #
-  # Values verified live via `sudo intel-undervolt read` on Debian (Aug 2026):
-  #   effective core/cache = -150mV (old conf's CPU:-750 was inert; hardware
-  #   applies the LESS-negative of core/cache), GPU = -150mV.
-  # Power limits match your old config exactly: 45W burst / 35W sustained.
-  #
-  # CORE AND CACHE ARE ONE KNOB: the CPU takes the less-negative of the two,
-  # so the module only exposes coreOffset (matches Intel's documented behavior).
-  #
-  # BIOS INTERACTION: running BIOS 1.31.0 (>1.16) and undervolting works -
-  # this unit ignores the Plundervolt lock. fwupd below can flash newer
-  # firmware; if an update ever lands and voltages stop holding, check here:
   #   sudo undervolt read
   services.undervolt = {
     enable = true;
-    coreOffset = -150;
-    gpuOffset = -150;
+    coreOffset = -160;
+    gpuOffset = -160;
     p1.limit = 35;       # sustained (PL1)
     p1.window = 28;
     p2.limit = 45;       # burst (PL2)
