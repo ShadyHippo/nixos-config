@@ -38,6 +38,27 @@
           };
         };
         modules = [
+          # Pin moonlight-qt to 6.0.1 — 6.1.0 has a regression bug.
+          { nixpkgs.overlays = [
+              (final: prev: {
+                moonlight-qt = prev.moonlight-qt.overrideAttrs (old: {
+                  version = "6.0.1";
+                  src = prev.fetchFromGitHub {
+                    owner = "moonlight-stream";
+                    repo = "moonlight-qt";
+                    rev = "v6.0.1";
+                    hash = "sha256-zrl8WPXvQ/7FTqFnpwoXEJ85prtgJWoWNsdckw5+JHI=";
+                  };
+                  patches = [
+                    (prev.fetchpatch {
+                      url = "https://github.com/moonlight-stream/moonlight-qt/commit/d73df12367749425b86b72c250bb0fba13ddfd29.patch";
+                      hash = "sha256-RIrQpZWbwUHs1Iwz/pXfXgshJeHYrzGxuaR5mRG85QY=";
+                    })
+                  ];
+                });
+              })
+            ];
+          }
 	  ./hardware-configuration.nix
           ./configuration.nix
           ./modules/base.nix
