@@ -47,6 +47,61 @@ in
     libwebp
   ];
 
+  # Default applications
+  xdg.mimeApps = {
+    enable = true;
+    defaultApplications = {
+      # images → gwenview
+      "image/jpeg"          = "org.kde.gwenview.desktop";
+      "image/png"           = "org.kde.gwenview.desktop";
+      "image/gif"           = "org.kde.gwenview.desktop";
+      "image/webp"          = "org.kde.gwenview.desktop";
+      "image/bmp"           = "org.kde.gwenview.desktop";
+      "image/tiff"          = "org.kde.gwenview.desktop";
+      "image/heic"          = "org.kde.gwenview.desktop";
+      "image/heif"          = "org.kde.gwenview.desktop";
+      "image/avif"          = "org.kde.gwenview.desktop";
+      "image/svg+xml"       = "org.kde.gwenview.desktop";
+      "image/x-xbitmap"     = "org.kde.gwenview.desktop";
+      "image/x-xpixmap"     = "org.kde.gwenview.desktop";
+      "image/x-icon"        = "org.kde.gwenview.desktop";
+      "image/vnd.microsoft.icon" = "org.kde.gwenview.desktop";
+      "image/x-portable-pixmap"  = "org.kde.gwenview.desktop";
+      "image/x-tga"         = "org.kde.gwenview.desktop";
+      "image/jxl"           = "org.kde.gwenview.desktop";
+
+      # raw camera (gwenview handles most, but darktable/shotwell if you add them)
+      "image/x-canon-cr2"   = "org.kde.gwenview.desktop";
+      "image/x-canon-cr3"   = "org.kde.gwenview.desktop";
+      "image/x-nikon-nef"   = "org.kde.gwenview.desktop";
+      "image/x-sony-arw"    = "org.kde.gwenview.desktop";
+
+      # video → vlc
+      "video/mp4"           = "vlc.desktop";
+      "video/x-matroska"    = "vlc.desktop";
+      "video/webm"          = "vlc.desktop";
+      "video/avi"           = "vlc.desktop";
+      "video/x-msvideo"     = "vlc.desktop";
+      "video/quicktime"     = "vlc.desktop";
+      "video/x-flv"         = "vlc.desktop";
+      "video/mpeg"          = "vlc.desktop";
+      "video/ogg"           = "vlc.desktop";
+      "video/x-theora+ogg"  = "vlc.desktop";
+      "video/3gpp"          = "vlc.desktop";
+      "video/3gpp2"         = "vlc.desktop";
+      "video/dvd"           = "vlc.desktop";
+      "video/x-ms-wmv"      = "vlc.desktop";
+      "application/x-matroska" = "vlc.desktop";
+      "application/mp4"     = "vlc.desktop";
+
+      # playlists → vlc
+      "application/x-mpegURL"     = "vlc.desktop";
+      "application/vnd.apple.mpegurl" = "vlc.desktop";
+      "audio/x-mpegurl"     = "vlc.desktop";
+      "audio/mpegurl"       = "vlc.desktop";
+    };
+  };
+
   # Flatpak (managed via nix-flatpak module)
   services.flatpak.packages = [
     "net.retrodeck.retrodeck"

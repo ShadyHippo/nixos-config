@@ -7,6 +7,11 @@
     extraCompatPackages = [ pkgs.proton-ge-bin ];
   };
 
+  # protontricks: winetricks wrapper for Proton prefixes. Needed to install
+  # .NET runtimes, vcrun, and other Windows deps inside a Proton prefix.
+  # E.g. `protontricks 213610 dotnetdesktop8` for SA2 mod manager.
+  environment.systemPackages = [ pkgs.protontricks ];
+
   programs.gamemode.enable = true;   # games request it via %command% or it just works
 
   # udev rules for Steam controllers / VR gear

@@ -42,7 +42,7 @@
     libheif
 
     # viewers & transfer — imv backs your my_scripts `img` command
-    imv localsend
+    imv localsend kdePackages.gwenview
 
     # lifestyle
     hyfetch ani-cli
