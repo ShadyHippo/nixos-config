@@ -45,6 +45,7 @@ in
     # scripts/build_db.py for thumbnail resize (--thumb 128) + WebP encoding
     imagemagick
     libwebp
+
   ];
 
   # Default applications
@@ -308,6 +309,7 @@ in
     "github:yt-dlp/yt-dlp" = { version = "latest", github_attestations = false }
     deno = "latest"
     golang = "latest"
+    "github:ptcodes/BatteryScope" = "latest"
   '';
 
   programs.gh.enable = true;

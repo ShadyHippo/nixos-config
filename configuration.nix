@@ -85,6 +85,10 @@ in
     cifs-utils samba
     mpv vlc ffmpeg
 
+    # BatteryScope native deps (GTK4/libadwaita/SQLite) — mise builds the
+    # Rust binary; Nix supplies the C libraries at build time.
+    pkg-config gtk4 libadwaita graphene gdk-pixbuf cairo pango harfbuzz dbus sqlite
+
     kdePackages.dolphin
     kdePackages.kio
     kdePackages.kio-fuse
