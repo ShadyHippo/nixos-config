@@ -84,7 +84,6 @@ in
     tree htop btop file tldr
     cifs-utils samba
     mpv vlc ffmpeg
-    libheif  # HEIC support for pillow-heif in Python venvs
 
     kdePackages.dolphin
     kdePackages.kio
