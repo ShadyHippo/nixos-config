@@ -17,8 +17,6 @@ in
     # Qt apps render at logical size on 4K@scale 1. Scales Dolphin, Moonlight,
     # kid3, VLC alike. Value lives in modules/sizing.nix (display.qt).
     QT_SCALE_FACTOR = toString sizing.display.qt;
-    # libstdc++.so.6 for pillow-heif's bundled libheif
-    LD_LIBRARY_PATH = lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ];
   };
 
   # gsettings schemas: regreet never sources profile.d, so GSETTINGS_SCHEMA_DIR
