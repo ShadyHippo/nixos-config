@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 
 {
   # ---- Docker -----------------------------------------------------------------
@@ -17,5 +17,15 @@
   # ---- nix-ld ------------------------------------------------------------------
   # Lets unpatched prebuilt Linux binaries run (mise toolchains, VS Code
   # extensions, standalone agent binaries, AppImages).
-  programs.nix-ld.enable = true;
+  programs.nix-ld = {
+    enable = true;
+    libraries = with pkgs; [
+      # ldd of mise-installed BatteryScope only needs these 4 direct deps:
+      gtk4
+      libadwaita
+      cairo
+      glib
+      sqlite
+    ];
+  };
 }

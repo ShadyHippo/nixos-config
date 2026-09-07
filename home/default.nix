@@ -48,6 +48,15 @@ in
 
   ];
 
+  xdg.desktopEntries.batteryscope = {
+    name = "BatteryScope";
+    comment = "Battery health and degradation trends";
+    exec = "${pkgs.mise}/bin/mise exec -- BatteryScope";
+    terminal = false;
+    categories = ["Utility" "Monitor"];
+    icon = "battery-full";
+  };
+
   # Default applications
   xdg.mimeApps = {
     enable = true;
