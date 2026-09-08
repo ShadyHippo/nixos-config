@@ -1,0 +1,5 @@
+# Large payloads are kept out of git; they live on disk and on the NAS.
+backup/
+*.tar
+*.tar.zst
+*.tar.gz

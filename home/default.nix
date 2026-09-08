@@ -229,6 +229,11 @@ in
   # ---------------------------------------------------------------------------
   programs.zsh = {
     enable = true;
+    shellAliases = {
+      # SA2B mod kit (see ~/nixos-config/SA2 Modding/SA2_Modding.md)
+      sa2-mods = "$HOME/nixos-config/SA2 Modding/launch-manager.sh";
+      sa2-setup = "$HOME/nixos-config/SA2 Modding/setup-sa2b.sh";
+    };
     enableCompletion = true;
     history = {
       path = "$HOME/.config/zsh/.zsh_history";
