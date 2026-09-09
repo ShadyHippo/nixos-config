@@ -433,7 +433,10 @@ in
       ]
       (builtins.readFile ./sway/config) + ''
 
-      # Auto-float dialogs and popups (Dolphin file transfers, file pickers, etc.)
+      # Auto-float XWayland dialogs/popups. NOTE: window_role/window_type are
+      # X11-only criteria (man 5 sway); native Wayland windows (e.g. Dolphin's
+      # file-transfer/confirm dialogs) are handled by app_id/title rules in
+      # sway/config instead.
       for_window [window_role="pop-up"] floating enable
       for_window [window_role="dialog"] floating enable
     '';

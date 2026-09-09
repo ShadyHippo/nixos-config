@@ -238,15 +238,25 @@ for_window [class="(?i)blueman-manager"] resize set 1060 500
 for_window [app_id="(?i)blueman-manager"] move position 2800 80   # token → bottom-right 2775,1610 (sizing.nix popups.blueman)
 for_window [class="(?i)blueman-manager"] move position 2800 80
 # Dolphin (KDE, native Wayland): its confirm/progress dialogs (Delete, Copying,
-# Moving, Extracting, Properties...) are xdg_toplevel windows just like the main
-# window - Wayland exposes no window role/type, so the window_role rules above
-# can't catch them. Match by title keywords, scoped to the Dolphin app_id.
-for_window [app_id="(?i)org\.kde\.dolphin" title="(?i)(delete|trash|copy(ing)?|mov(e|ing)|renam|progress|extract|overwrit|skip|conflict|error|propert(ies|y)|open with|about)"] floating enable
-# Main-window rescue: the rule above matches the PATH inside the main window's
-# title too (title = "<path> — Dolphin") — e.g. browsing the Trash location or a
-# folder named "Copy"/"Progress" floats the whole file manager. These rules run
-# later, so any title ending in "<sep> Dolphin" is forced back to tiled.
-for_window [app_id="(?i)org\.kde\.dolphin" title="(?i).* ([—–-]) dolphin$"] floating disable
+# Moving, Extracting...) are xdg_toplevel windows just like the main window -
+# Wayland exposes no window role/type (window_role/window_type are XWayland-only
+# criteria), so match by title keywords, scoped to the Dolphin app_id.
+# CAVEAT: sway evaluates for_window rules ONCE, at the moment the window maps,
+# and NEVER re-runs them on later title changes (view_execute_criteria is only
+# called from view_map). Titles measured on this machine at map time:
+#   progress window:  "Copying — Dolphin"  (later churns to "Copying (66% ...)")
+#   overwrite dialog: "File Already Exists — Dolphin"
+#   main windows:     "<path> — Dolphin", "trash:/ — Dolphin", "smb://... — Dolphin"
+for_window [app_id="(?i)org\.kde\.dolphin" title="(?i)(delete|trash|copy(ing)?|mov(e|ing)|renam|progress|extract|overwrit|skip|conflict|error|exist|propert(ies|y)|open with|about)"] floating enable
+# Main-window rescue: the float rule above also matches keywords inside main
+# window titles (e.g. trash:/ or a folder named Copy), and sway applies rules
+# in config order, so this runs after and re-tiles them. Scoped to LOCATION
+# titles only: paths start with "/", special places are scheme URIs containing
+# ":/" (trash:/, smb://, network:/). Dialog captions ("Copying", "File Already
+# Exists", "Delete File?...") never contain either, so this cannot un-float
+# them anymore - the old catch-all suffix rule was exactly why Dolphin's
+# progress/confirm dialogs kept coming up tiled.
+for_window [app_id="(?i)org\.kde\.dolphin" title="(?i)(^/|:/).* ([—–-]) dolphin$"] floating disable
 
 # ---------------------------------------------------------------------------
 # Bar
