@@ -1,15 +1,14 @@
 { config, pkgs, lib, ... }:
 
 let
-  sizing = import ./sizing.nix;   # all scaling decisions (see file)
-  theme  = import ./theming.nix;  # palette + theme names (see file)
+  identity = import ../machine/identity.nix;
 in
 {
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Kernel modules blacklisted: nouveau panics on 9570; nothing should touch
-  # the GTX 1050 Ti (see modules/hardware.nix).
+  # Kernel modules blacklisted: nouveau panics on this laptop (XPS 9570);
+  # nothing should touch the GTX 1050 Ti (see machine/hardware.nix).
   boot.blacklistedKernelModules = [
     "nouveau" "rivafb" "nvidiafb" "rivatv" "nv"
     "nvidia" "nvidia-drm" "nvidia-modeset" "nvidia-uvm"
@@ -37,7 +36,7 @@ in
 
   services.openssh = {
     enable = true;
-    settings.PasswordAuthentication = false;   # flip to true temporarily if you need password ssh while setting up keys
+    settings.PasswordAuthentication = false;
   };
 
   security.polkit.enable = true;
@@ -55,9 +54,9 @@ in
     options = "--delete-older-than 14d";
   };
 
-  users.users.hippo = {
+  users.users.${identity.username} = {
     isNormalUser = true;
-    description = "hippo";
+    description = identity.username;
     extraGroups = [ "wheel" "networkmanager" "audio" "video" "input" "docker" "scanner" "lp" ];
     shell = pkgs.zsh;
   };
@@ -65,37 +64,18 @@ in
   environment.systemPackages = with pkgs; [
     git vim wget curl htop btop
     pciutils usbutils lshw        # hardware poking
-    powertop                      # diagnostics ONLY - TLP does the writing (your rule)
-    lm_sensors                    # `sensors` - real temp/fan readings (btop + debugging)
+    powertop                      # diagnostics only (power management config lives elsewhere)
+    lm_sensors                    # `sensors` - temp/fan readings (btop + debugging)
     stress-ng                     # CPU/RAM stress testing (undervolt validation)
     glmark2                       # GPU stress testing (use --backend=wayland)
     brightnessctl                 # screen backlight (bound to XF86 keys in sway)
-    grim                          # screenshots (slurp lives in configuration.nix - overridden there with the -x crosshair/cursor-hide patches)
     wl-clipboard                  # wayland copy/paste
-    pavucontrol                   # per-app volume
-  # blueman: GTK3 ignores GDK_SCALE on Wayland, so it's forced onto XWayland
-  # via GDK_BACKEND=x11. A wrapper shim reads the scale from the resolution
-  # preset (set-res.sh), defaulting to the 4K scale.
-    (blueman.overrideAttrs (old: {
-      postFixup = (old.postFixup or "") + ''
-        mv $out/bin/blueman-manager $out/bin/.blueman-manager-real
-        cat > $out/bin/blueman-manager <<'SHIM'
-        #!/bin/sh
-        # GDK_SCALE from the resolution preset (set-res.sh), fallback = 4K scale.
-        [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
-        export GDK_BACKEND=x11
-        export GDK_SCALE="''${SCALE:-${toString sizing.display.gtk.blueman}}"
-        exec "$(dirname "$0")/.blueman-manager-real" "$@"
-        SHIM
-        chmod +x $out/bin/blueman-manager
-      '';
-    }))
     joycond                       # Joy-Con pair daemon (combines L+R into one pad)
     playerctl                     # media keys
-    libnotify                     # notify-send (your bash 'alert' alias)
+    libnotify                     # notify-send
     glib.bin                      # gsettings — set-res.sh sets font-name/cursor-size live
     gsettings-desktop-schemas     # org.gnome.desktop.interface etc. (schema files for gsettings)
-    nfs-utils cifs-utils          # NAS mounts when needed
+    nfs-utils                     # NAS mounts when needed
   ];
 
   system.stateVersion = "26.05";

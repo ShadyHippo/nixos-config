@@ -10,7 +10,7 @@
     # playback & music tools
     mpv vlc kid3 yt-dlp
 
-    # office — spreadsheet & word processing (wish list: don't get caught without)
+    # office
     libreoffice
 
     # creative
@@ -25,9 +25,8 @@
     # disks (GNOME left behind)
     gparted smartmontools nvme-cli gdu
 
-    # printing & scanning — Brother MFC-J6550DW: prints via driverless IPP,
-    # scanning uses brscan5 backend (NAPS2 UI)
-    naps2 brscan5
+    # printing & scanning GUIs — drivers/backends configured in machine/printing.nix
+    naps2
 
     # dev CLI
     zellij gitui fzf ripgrep parallel pv
@@ -41,19 +40,17 @@
     ffmpeg
     libheif
 
-    # viewers & transfer — imv backs your my_scripts `img` command
+    # viewers & transfer
     imv localsend kdePackages.gwenview
 
     # lifestyle
     hyfetch ani-cli
   ];
 
-  # mesh VPN for the remote-agent workflow; run `sudo tailscale up` post-install
+  # mesh VPN; run `sudo tailscale up` post-install
   services.tailscale.enable = true;
 
-  services.printing.enable = true;
-  hardware.sane.enable = true;
-  hardware.sane.extraBackends = [ pkgs.brscan5 ];
+  # printing/sane services live in machine/printing.nix
 
   # iPhone over USB (photo transfer -> heicToJpg workflow)
   services.usbmuxd.enable = true;

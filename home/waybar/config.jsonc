@@ -96,7 +96,7 @@
     },
 
     "tray": {
-        "icon-size": 28,
-        "spacing": 10
+        "icon-size": @BAR_ICON_SIZE@,
+        "spacing": @BAR_SPACING@
     }
 }

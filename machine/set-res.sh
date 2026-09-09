@@ -7,11 +7,11 @@
 # So every framebuffer px is 2 (1080p) or 3 (720p) physical px. Cursors, mouse
 # accel and popup offsets are halved/thirded to keep them the same physical
 # size; FONTS are deliberately NOT (1080p = 11pt, 720p = 10pt ghostty, tuned in
-# modules/sizing.nix `presets`) — sized for readability on the grainy upscaled
+# modules/theme.nix `presets`) — sized for readability on the grainy upscaled
 # panel, not physical identity. Desktop output scale stays 1.0 everywhere.
 #
-# All numbers are baked from modules/sizing.nix (presets) at config time — edit
-# sizing.nix, home-manager switch, then re-press the key. This script only
+# All numbers are baked from machine/theme.nix at config time — edit
+# theme.nix, rebuild, then re-press the key. This script only
 # edits the INSTALLED configs, so a later `home-manager switch` regenerates
 # them to 4K base values (re-press a preset key to re-apply).
 set -euo pipefail

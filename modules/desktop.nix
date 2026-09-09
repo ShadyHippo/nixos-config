@@ -1,9 +1,9 @@
 { pkgs, lib, unstable, ... }:
 
 let
-  theme = import ./theming.nix;   # palette / theme names (see file)
+  theme = import ../machine/theme.nix;   # palette / theme names (see file)
   # Same recolored cursor as the home session, so regreet matches (not stock).
-  recoloredCursors = import ../home/cursor/theme.nix { inherit pkgs; };
+  recoloredCursors = import ../home/cursor/theme.nix { inherit pkgs; colors = theme.palette; };
 in
 {
   # ---- Sway ------------------------------------------------------------------
@@ -21,11 +21,11 @@ in
   };
 
   # Login: greetd + regreet. ReGreet runs under Cage (minimal Wayland
-  # compositor) and launches sway after auth. Default user = hippo.
+  # compositor) and launches sway after auth. Default user = machine/identity.nix.
   programs.regreet = {
     enable = true;
     # Wallpaper installed to /etc/greetd (world-readable) because the greeter
-    # user can't read /home/hippo.
+    # user can't read the configured user's home.
     settings = {
       background.path = "/etc/greetd/greeter.jpg";
       background.fit = "Cover";
@@ -47,16 +47,6 @@ in
 
   # dconf backing store (GTK dark-mode preference lives here via home-manager)
   programs.dconf.enable = true;
-
-  # fcitx5 + Simplified Pinyin. waylandFrontend uses native Wayland IM protocol.
-  i18n.inputMethod = {
-    enable = true;
-    type = "fcitx5";
-    fcitx5 = {
-      waylandFrontend = true;
-      addons = [ pkgs.qt6Packages.fcitx5-chinese-addons ];
-    };
-  };
 
   # ---- GTK apps: gruvbox ---------------------------------------------------
   # Qt apps are themed system-wide by the `qt` module (configuration.nix).
@@ -81,7 +71,6 @@ in
   # Cousine Nerd Font: pinned to unstable (3.5.0) for the complete MDI glyph
   # block — 26.05's 3.4.0 is missing a volume glyph.
     unstable.nerd-fonts.cousine
-    noto-fonts-cjk-sans           # required for Pinyin IME candidate window / hanzi
     noto-fonts-color-emoji
     dejavu_fonts
     liberation_ttf

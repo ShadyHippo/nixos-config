@@ -1,5 +1,5 @@
 {
-  description = "hippo's NixOS config";
+  description = "NixOS configuration";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
@@ -24,9 +24,10 @@
   outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, ... }@inputs:
     let
       system = "x86_64-linux";
+      identity = import ./machine/identity.nix;
     in
     {
-      nixosConfigurations.hippo-xps = nixpkgs.lib.nixosSystem {
+      nixosConfigurations.${identity.hostname} = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
           inherit inputs;
@@ -46,17 +47,20 @@
           ./modules/desktop.nix
           ./modules/dev.nix
           ./modules/gaming.nix
-          ./modules/hardware.nix
-          ./modules/printing.nix
+          ./modules/hardware-generic.nix
+          ./machine/hardware.nix
+          ./machine/printing.nix
+          ./machine/fcitx5.nix
+          ./machine/vscode.nix
 	  home-manager.nixosModules.home-manager
 	  {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.extraSpecialArgs = { inherit inputs; };
             # Backup extension: HM aborts activation if a target exists as a
-            # real file (fcitx5's profile did this).
+            # real file.
             home-manager.backupFileExtension = "bak";
-            home-manager.users.hippo = {
+            home-manager.users.${identity.username} = {
 	      imports = [
                 ./home
                 inputs.nix-flatpak.homeManagerModules.nix-flatpak

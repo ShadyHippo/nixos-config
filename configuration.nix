@@ -1,22 +1,18 @@
-# Edit this configuration file to define what should be installed on
-# your system. Help is available in the configuration.nix(5) man page, on
-# https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
-
 { config, lib, pkgs, inputs, ... }:
 
 let
-  theme  = import ./modules/theming.nix;   # colors/themes → edit to re-theme
-  sizing = import ./modules/sizing.nix;    # fonts/scales/layout → edit for other screens
+  theme = import ./machine/theme.nix;   # colors/fonts/scales (see machine/)
+  identity = import ./machine/identity.nix;
 in
 {
   # X11/XWayland cursor: sway only themes Wayland clients; libXcursor needs
   # the env vars + the ~/.icons/default inherit set up in home/default.nix.
   environment.variables = {
     XCURSOR_THEME = theme.cursorTheme;
-    XCURSOR_SIZE = toString sizing.display.cursor.env;
+    XCURSOR_SIZE = toString theme.display.cursor.env;
     # Qt apps render at logical size on 4K@scale 1. Scales Dolphin, Moonlight,
-    # kid3, VLC alike. Value lives in modules/sizing.nix (display.qt).
-    QT_SCALE_FACTOR = toString sizing.display.qt;
+    # kid3, VLC alike. Value lives in machine/theme.nix (display.qt).
+    QT_SCALE_FACTOR = toString theme.display.qt;
   };
 
   # gsettings schemas: regreet never sources profile.d, so GSETTINGS_SCHEMA_DIR
@@ -37,21 +33,13 @@ in
     style = "kvantum";
   };
 
-  networking.hostName = "hippo-xps"; # Define your hostname.
-
-  # Configure network proxy if necessary
-  # networking.proxy.default = "http://user:password@proxy:port/";
-  # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
+  networking.hostName = identity.hostname;
 
   # 32px Terminus — stock 16px is unusable on the 4K panel.
   console = {
     font = "${pkgs.terminus_font}/share/consolefonts/ter-132n.psf.gz";
     keyMap = "us";
-    # useXkbConfig = true; # use xkb.options in tty.
   };
-
-  # Enable CUPS to print documents.
-  # services.printing.enable = true;
 
   services.flatpak.enable = true;
 
@@ -61,13 +49,15 @@ in
   programs.zsh.enable = true;
 
   # List packages installed in system profile.
-  # You can use https://search.nixos.org/ to find more packages (and options).
+  # NOTE: base.nix and home/default.nix also install packages. This list is
+  # for things that belong at system scope only (build tools, CLI, browsers).
   environment.systemPackages = with pkgs; [
-    git neovim nil nodejs gcc 
-    gnumake jq unzip
+    neovim nil nodejs gcc
+    gnumake unzip
     ripgrep fd
-    # slurp: pinned to git master for native `-x` crosshair. Patches add font
-  # tweaks + cursor hide during snip.
+  # slurp: pinned to a specific commit for the native `-x` crosshair + cursor
+  # hide during snip. The patches in ./patches/ add font tweaks. Without the
+  # pin, the patches fail to apply (upstream changed the source layout).
     grim (slurp.overrideAttrs (old: {
       src = pkgs.fetchFromGitHub {
         owner = "emersion";
@@ -76,12 +66,8 @@ in
         sha256 = "0lhhgxx2w09h18n3ls624kmmcrljwkqrb8nsa6f8s1rk7zh5izpm";
       };
       patches = (old.patches or []) ++ [ ./patches/slurp-tweaks.patch ];
-    })) wl-clipboard 
-    mako brightnessctl
-    wget curl pciutils usbutils 
-    lshw pavucontrol blueman 
-    playerctl libnotify
-    tree htop btop file tldr
+    }))
+    tree file tldr
     cifs-utils samba
     mpv vlc ffmpeg
 
@@ -89,7 +75,6 @@ in
     # Rust binary; Nix supplies the C libraries at build time.
     pkg-config gtk4 libadwaita graphene gdk-pixbuf cairo pango harfbuzz dbus sqlite
 
-    kdePackages.dolphin
     kdePackages.kio
     kdePackages.kio-fuse
     kdePackages.kio-extras
@@ -113,27 +98,8 @@ in
   # Prefer dark color scheme app-wide (freedesktop color-scheme accent).
   xdg.portal.config.common.default = "gtk";
 
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
-  # programs.gnupg.agent = {
-  #   enable = true;
-  #   enableSSHSupport = true;
-  # };
-
-  # List services that you want to enable:
-
-  # Open ports in the firewall.
+  # LocalSend (LAN file transfer).
   networking.firewall.allowedTCPPorts = [ 53317 ];
   networking.firewall.allowedUDPPorts = [ 53317 ];
-  # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
-
-  # Copy the NixOS configuration file and link it from the resulting system
-  # (/run/current-system/configuration.nix). This is useful in case you
-  # accidentally delete configuration.nix.
-  # system.copySystemConfiguration = true;
-
-
 }
 

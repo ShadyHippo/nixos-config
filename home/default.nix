@@ -1,23 +1,28 @@
 { pkgs, unstable, ... }:
 
 let
-  theme  = import ../modules/theming.nix;   # colors/themes (edit to re-theme)
-  sizing = import ../modules/sizing.nix;    # fonts/scales/layout (edit for other screens)
-  pal    = theme.palette;                   # shorthand for the gtk-4.0 css below
+  theme  = import ../machine/theme.nix;
+  identity = import ../machine/identity.nix;
+  pal    = theme.palette;
+  gtk4css = import ../machine/gtk4-theme.nix theme;
+  resolution = import ../machine/resolution.nix theme;
+
   # Recolored Bibata cursor theme shared by the sway session and regreet.
   recoloredCursors = import ./cursor/theme.nix { inherit pkgs; colors = theme.palette; };
 in
 {
-  home.username = "hippo";
+  # Runtime resolution presets ($mod+F10/11/12) — self-contained in machine/.
+  imports = [ resolution ];
+
+  home.username = identity.username;
   home.stateVersion = "26.05";
 
   # ---------------------------------------------------------------------------
-  # Packages (user scope)
+  # Packages (user scope — GUI apps and things configured via home-manager)
   # ---------------------------------------------------------------------------
   home.packages = with pkgs; [
     ghostty                # terminal
-    vscode                 # VS Code — from the stable nixpkgs pin (no overlay is actually wired)
-    neovim                 # Neovim — from the stable nixpkgs pin (no nightly overlay)
+    neovim                 # Neovim
     qalculate-gtk          # calculator (floating window rule exists for it)
     jq                     # used by sway screenshot/res scripts
 
@@ -28,24 +33,36 @@ in
     swaylock               # screen lock
     swayidle               # idle lock/dpms
     mako                   # notifications
-    nwg-displays           # GUI monitor arranger — SESSION-ONLY, never saved (kanshi is durable)
+    nwg-displays           # GUI monitor arranger — SESSION-ONLY, never saved
+    swayosd                # volume/brightness OSD popups
+    libpulseaudio          # pactl, for low-level audio control
+    networkmanagerapplet   # nm-applet: wifi tray menu + secrets agent
+    wlsunset               # nightlight (orange), hotkey-only toggle ($mod+o)
+    polkit_gnome           # polkit-gnome-authentication-agent-1 (root prompts)
+    fastfetch              # system info fetch
+    imagemagick            # convert (required by scripts/build_db.py)
+    libwebp                # cwebp (required by scripts/build_db.py)
+    kdePackages.dolphin    # file manager
+    pavucontrol            # per-app volume (XWayland wrapper via launch script)
 
-    kdePackages.dolphin
-
-    swayosd                 # volume/brightness OSD popups (server autostarted in sway)
-    libpulseaudio            # pactl, for low-level audio control
-    networkmanagerapplet     # nm-applet: wifi tray menu + secrets agent (autostarted in sway)
-    wlsunset                 # nightlight (orange), hotkey-only toggle ($mod+o)
-    polkit_gnome             # polkit-gnome-authentication-agent-1 (root prompts) - autostarted in sway
-
-    # System info fetch (modern neofetch drop-in — neofetch is unmaintained)
-    fastfetch
-
-    # image tooling — convert (imagemagick) + cwebp (libwebp): required by
-    # scripts/build_db.py for thumbnail resize (--thumb 128) + WebP encoding
-    imagemagick
-    libwebp
-
+    # Blueman GDK_SCALE wrapper: GTK3's Wayland backend ignores GDK_SCALE, so
+    # blueman-manager is forced onto XWayland (GDK_BACKEND=x11). The shim reads
+    # the current resolution preset (~/.config/sway/preset) so the scale
+    # follows set-res.sh.
+    (blueman.overrideAttrs (old: {
+      postFixup = (old.postFixup or "") + ''
+        mv $out/bin/blueman-manager $out/bin/.blueman-manager-real
+        cat > $out/bin/blueman-manager <<'SHIM'
+        #!/bin/sh
+        # GDK_SCALE from the resolution preset (set-res.sh), fallback = 4K scale.
+        [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
+        export GDK_BACKEND=x11
+        export GDK_SCALE="''${SCALE:-${toString theme.display.gtk.blueman}}"
+        exec "$(dirname "$0")/.blueman-manager-real" "$@"
+        SHIM
+        chmod +x $out/bin/blueman-manager
+      '';
+    }))
   ];
 
   xdg.desktopEntries.batteryscope = {
@@ -79,8 +96,6 @@ in
       "image/x-portable-pixmap"  = "org.kde.gwenview.desktop";
       "image/x-tga"         = "org.kde.gwenview.desktop";
       "image/jxl"           = "org.kde.gwenview.desktop";
-
-      # raw camera (gwenview handles most, but darktable/shotwell if you add them)
       "image/x-canon-cr2"   = "org.kde.gwenview.desktop";
       "image/x-canon-cr3"   = "org.kde.gwenview.desktop";
       "image/x-nikon-nef"   = "org.kde.gwenview.desktop";
@@ -103,8 +118,6 @@ in
       "video/x-ms-wmv"      = "vlc.desktop";
       "application/x-matroska" = "vlc.desktop";
       "application/mp4"     = "vlc.desktop";
-
-      # playlists → vlc
       "application/x-mpegURL"     = "vlc.desktop";
       "application/vnd.apple.mpegurl" = "vlc.desktop";
       "audio/x-mpegurl"     = "vlc.desktop";
@@ -119,7 +132,7 @@ in
 
   # Cursor: bigger + a real theme (default is a tiny X cursor)
   home.sessionVariables = {
-    XCURSOR_SIZE = toString sizing.display.cursor.env;
+    XCURSOR_SIZE = toString theme.display.cursor.env;
     XCURSOR_THEME = theme.cursorTheme;
   };
 
@@ -137,86 +150,46 @@ in
   # ~/.icons/default must exist and inherit.
   home.file.".icons/default/index.theme".text = ''
     [Icon Theme]
-    Inherits=Bibata-Modern-Classic
+    Inherits=${theme.cursorTheme}
   '';
 
-  # force: set-res.sh rewrites font-size at runtime; must not back up
-  # (stale .bak from a previous preset collides).
+  # Ghostty terminal — config written directly (no HM module: that adds a
+  # systemd single-instance daemon + shell integration we don't want).
+  # Values from theme.nix. force: set-res.sh rewrites font-size at runtime.
   home.file.".config/ghostty/config" = {
     force = true;
-    text = builtins.replaceStrings
-      [ "font-family = Cousine Nerd Font" "font-size = 18" ]
-      [ ("font-family = " + sizing.font.family) ("font-size = " + toString sizing.font.points.ghostty) ]
-      (builtins.readFile ./ghostty/config);
+    text = ''
+      theme = "Gruvbox Dark"
+      font-family = ${theme.font.family}
+      font-size = ${toString theme.font.points.ghostty}
+      copy-on-select = clipboard
+    '';
   };
 
-  # VS Code icon: package ships 1024x1024 but launcher shows a blank box;
-  # pin into user icon theme so it resolves.
-  home.file.".local/share/icons/hicolor/128x128/apps/vscode.png".source =
-    "${pkgs.vscode}/share/icons/hicolor/1024x1024/apps/vscode.png";
-
-  # fcitx5: preseed IMs (keyboard-us + Pinyin) + trigger keys. Without this the
-  # tray shows "input" and clicking it does nothing. Restart after switching.
-  xdg.configFile."fcitx5/profile".text = ''
-    [Profile]
-    EnabledIMList=pinyin:False,keyboard-us:True
-
-    [Groups/0]
-    # Group Name
-    Name=Default
-    # Layout
-    Default Layout=us
-    # Default Input Method
-    DefaultIM=keyboard-us
-
-    [Groups/0/Items/0]
-    # Name
-    Name=keyboard-us
-    # Layout
-    Layout=
-
-    [Groups/0/Items/1]
-    # Name
-    Name=pinyin
-    # Layout
-    Layout=
-
-    [GroupOrder]
-    0=Default
-  '';
-
-  # fcitx5 config: TriggerKeys = Super+Shift+t. ShareInputState=All makes
-  # IM state global (not per-app).
-  xdg.configFile."fcitx5/config".text = ''
-    [Hotkey]
-    TriggerKeys=Super+Shift+t
-
-    [Behavior]
-    ShareInputState=All
-  '';
-
-  # fcitx5 UI font — doubled from default 10pt for 4K@scale 1.
-  xdg.configFile."fcitx5/conf/classicui.conf".text = ''
-    Font=Sans 24
-    MenuFont=Sans 24
-    TrayFont=Sans Bold 24
-  '';
-
   xdg.configFile."fuzzel/fuzzel.ini".source = ./fuzzel/fuzzel.ini;
-  # force: set-res.sh rewrites at runtime; must not back up (stale .bak).
+
+  # Mako notifications — generated from theme.nix.
+  # force: set-res.sh rewrites at runtime; must not back up.
   xdg.configFile."mako/config" = {
     force = true;
-    text = builtins.replaceStrings
-      [ "font=Cousine Nerd Font 16" "margin=24" "padding=10" "border-size=2"
-        "#282828EE" "#ebdbb2" "#83a598" "#cc241dE6"
-      ]
-      [ ("font=${sizing.font.family} " + toString sizing.font.points.mako)
-        ("margin=" + toString sizing.makoMargin)
-        ("padding=" + toString sizing.makoPadding)
-        ("border-size=" + toString sizing.makoBorder)
-        (theme.palette.bg + "EE") theme.palette.fg theme.palette.blue (theme.palette.red + "E6")
-      ]
-      (builtins.readFile ./mako/config);
+    text = ''
+      # mako — corner popup + fade, gruvbox
+      # layer=top renders below fullscreen windows (overlay would cover games).
+      font=${theme.font.family} ${toString theme.font.points.mako}
+      background-color=${pal.bg}EE
+      text-color=${pal.fg}
+      border-color=${pal.blue}
+      border-size=${toString theme.makoBorder}
+      border-radius=0
+      default-timeout=4000
+      anchor=top-right
+      margin=${toString theme.makoMargin}
+      padding=${toString theme.makoPadding}
+      layer=top
+
+      [urgency=high]
+      background-color=${pal.red}E6
+    '';
   };
 
   # fastfetch: no config override, uses defaults (auto-detects NixOS logo).
@@ -230,7 +203,6 @@ in
   programs.zsh = {
     enable = true;
     shellAliases = {
-      # SA2B mod kit (see ~/nixos-config/SA2 Modding/SA2_Modding.md)
       sa2-mods = "$HOME/nixos-config/SA2 Modding/launch-manager.sh";
       sa2-setup = "$HOME/nixos-config/SA2 Modding/setup-sa2b.sh";
     };
@@ -291,16 +263,14 @@ in
         if [[ -n "$_sp_start" ]]; then
           local s=$(( EPOCHREALTIME - _sp_start ))
           printf -v _sp_dur '%.2fs' $s
-          RPROMPT="%F{#928374}took $_sp_dur%f"
+          RPROMPT="%F{${pal.gray}}took $_sp_dur%f"
         else
           RPROMPT=""
         fi
       }
       add-zsh-hook preexec _sp_preexec
       add-zsh-hook precmd _sp_precmd
-      # %~  -> ~ at home, ~/subdir under home, full absolute path elsewhere
-      # %(!). = root? (then red #) : (?(. = last cmd ok? pink ❯ : red ❯)
-      PROMPT='%B%F{#ff2b6d}%~%f %(!.%F{#fb4934}#.%(?.%F{#ff2b6d}.%F{#fb4934})❯)%f%b '
+      PROMPT='%B%F{${pal.accent}}%~%f %(!.%F{#fb4934}#.%(?.%F{${pal.accent}}.%F{#fb4934})❯)%f%b '
     '';
   };
 
@@ -335,63 +305,17 @@ in
       user.email = "tim.vandyke123@gmail.com";
       push.autoSetupRemote = true;
     };
-  };
+};
 
-  programs.vscode = {
-    enable = true;
-    profiles.default.extensions = with pkgs.vscode-extensions; [
-      golang.go
-      jdinhlife.gruvbox
-      jnoortheen.nix-ide
-      mechatroner.rainbow-csv
-      oderwat.indent-rainbow
-      vscodevim.vim
-      llvm-vs-code-extensions.vscode-clangd
-      dbaeumer.vscode-eslint
-      esbenp.prettier-vscode
-      mkhl.direnv
-    ];
-    profiles.default.userSettings = {
-      "workbench.sideBar.location" = "right";
-      "window.zoomLevel" = 2.5;
-      "files.autoSave" = "afterDelay";      # auto-save (1s after typing stops)
-      "editor.formatOnSave" = true;          # format file on save
-      "workbench.colorTheme" = "Gruvbox Dark Hard";
-      "vim.useSystemClipboard" = true;
-      "vim.hlsearch" = true;
-      "vim.visualstar" = true;
-      "vim.handleKeys" = {
-        "<C-p>" = false; # VSCodeVim intercepts Ctrl+P (regression v1.26+); let VS Code's Quick Open win
-      };
-      "editor.lineNumbers" = "relative";
-      "search.showLineNumbers" = true;
-      "explorer.confirmDragAndDrop" = false;
-      "explorer.confirmDelete" = false;
-      "workbench.colorCustomizations" = {
-        "editorBracketHighlight.foreground1" = "#003ad8";
-        "editorBracketHighlight.foreground2" = "#c58700";
-        "editorBracketHighlight.foreground3" = "#ea00ff";
-        "editorBracketHighlight.foreground4" = "#0bbe89";
-        "editorBracketHighlight.foreground5" = "#fffb00";
-        "editorBracketHighlight.foreground6" = "#21c700";
-        "editorBracketHighlight.unexpectedBracket.foreground" = "#ff0000";
-      };
-    };
-    profiles.default.keybindings = [
-      {
-        key = "ctrl+shift+s";
-        command = "workbench.action.files.saveAll";   # Save All (overrides Save As default)
-      }
-      {
-        key = "alt+shift+f";
-        command = "editor.action.formatDocument";     # format the whole file
-        when = "editorTextFocus && !editorReadonly";
-      }
-    ];
-  };
+  # VSCode config lives in machine/vscode.nix (trimmable user favorite).
 
-  # Sway — plain config file, not Nix attrsets. config = null prevents HM
-  # from generating its own default (which would add an i3status bar).
+  # ---------------------------------------------------------------------------
+  # Sway — home/sway/config holds the static config (keybindings, rules,
+  # ---------------------------------------------------------------------------
+  # Sway — home/sway/config holds the static config (keybindings, rules,
+  # autostart). The 8 dynamic values below are appended via extraConfig from
+  # machine/theme.nix (sway applies last-wins, so appending overrides cleanly).
+  # ---------------------------------------------------------------------------
   wayland.windowManager.sway = {
     enable = true;
     config = null;
@@ -399,39 +323,28 @@ in
     # which only exists AFTER activation — skip the sandboxed build-time check.
     checkConfig = false;
     extraConfig = let
-      pavu = sizing.popups.pavucontrol;
-      blu  = sizing.popups.blueman;
-      fnt  = sizing.font.points;
-      pal  = theme.palette;
-    in builtins.replaceStrings
-      [ # -- font / cursor / wallpaper / titlebar (sizing.nix + theming.nix) --
-        "font Cousine Nerd Font 22"
-        "seat * xcursor_theme Bibata-Modern-Classic 64"
-        "output eDP-1 bg /home/hippo/.local/share/backgrounds/gruvbox-astronaut-4k.png fill"
-        "titlebar_padding 4"
-        # -- floating popups (sizing.nix -> popups) --
-        "move position 2700 1700"
-        "move position 2800 80"
-        "resize set 1060 500"
-        # -- colors (theming.nix -> palette) --
-        "#83a598"
-        "#282828"
-        "#ebdbb2"
-        "#665c54"
-        "#3c3836"
-        "#bdae93"
-        "#cc241d"
-      ]
-      [ "font ${sizing.font.family} ${toString fnt.sway}"
-        "seat * xcursor_theme ${theme.cursorTheme} ${toString sizing.display.cursor.seat}"
-        "output eDP-1 bg ${theme.wallpaper} fill"
-        "titlebar_padding ${toString sizing.titlebarPadding}"
-        "move position ${toString pavu.x} ${toString pavu.y}"
-        "move position ${toString blu.x} ${toString blu.y}"
-        "resize set ${toString blu.w} ${toString blu.h}"
-        pal.blue pal.bg pal.fg pal.bgDim pal.bgAlt pal.fgDim pal.red
-      ]
+      pavu = theme.popups.pavucontrol;
+      blu  = theme.popups.blueman;
+    in
       (builtins.readFile ./sway/config) + ''
+      # ── Dynamic values from machine/theme.nix (appended: last-wins) ──
+      font ${theme.font.family} ${toString theme.font.points.sway}
+      seat * xcursor_theme ${theme.cursorTheme} ${toString theme.display.cursor.seat}
+      output eDP-1 bg ${theme.wallpaper} fill
+      titlebar_padding ${toString theme.titlebarPadding}
+
+      client.focused          ${pal.blue} ${pal.blue} ${pal.bg}
+      client.focused_inactive ${pal.bgDim} ${pal.bgDim} ${pal.fg}
+      client.unfocused        ${pal.bgAlt} ${pal.bgAlt} ${pal.fgDim}
+      client.urgent           ${pal.red} ${pal.red} ${pal.fg}
+
+      # Floating popup anchors (from theme.nix popups)
+      for_window [app_id="(?i)pavucontrol"] move position ${toString pavu.x} ${toString pavu.y}
+      for_window [class="(?i)pavucontrol"] move position ${toString pavu.x} ${toString pavu.y}
+      for_window [app_id="(?i)blueman-manager"] resize set ${toString blu.w} ${toString blu.h}
+      for_window [class="(?i)blueman-manager"] resize set ${toString blu.w} ${toString blu.h}
+      for_window [app_id="(?i)blueman-manager"] move position ${toString blu.x} ${toString blu.y}
+      for_window [class="(?i)blueman-manager"] move position ${toString blu.x} ${toString blu.y}
 
       # Auto-float XWayland dialogs/popups. NOTE: window_role/window_type are
       # X11-only criteria (man 5 sway); native Wayland windows (e.g. Dolphin's
@@ -450,67 +363,6 @@ in
     source = ./sway/scripts/screenshot.sh;
     executable = true;
   };
-  # set-res.sh (F10/F11/F12 resolution presets): every number baked in from
-  # modules/sizing.nix (presets). The sed patterns live in the script; only the
-  # per-preset VALUES are injected here (one token set per preset).
-  xdg.configFile."sway/scripts/set-res.sh" = let
-    pres = sizing.presets;
-    fam  = sizing.font.family;
-    curs = theme.cursorTheme;
-    mkSway = p: builtins.concatStringsSep "\n" (
-    # Delete any eDP-1 mode line; (sub-4K presets) append --custom one.
-    # 4K preset just deletes (reload → preferred = EDID 4K).
-      [ ( "/^output eDP-1 mode/d"
-          + (if p.mode == "native" then "" else "\n$a output eDP-1 ${p.mode}") )
-        "s|^font .*\\b[0-9]\\+$|font ${fam} ${toString p.fonts.sway}|"
-        "s|^seat \\* xcursor_theme .*\\b[0-9]\\+$|seat * xcursor_theme ${curs} ${toString p.cursorSeat}|"
-        "s|pointer_accel .*|pointer_accel ${p.accel}|"
-        "s|^titlebar_padding .*|titlebar_padding ${toString p.titlebar}|"
-        "s|\\(for_window \\[[a-z_]*=\"(?i)pavucontrol\"\\]\\) move position [0-9 ]*|\\1 move position ${toString p.pavu.x} ${toString p.pavu.y}|g"
-        "s|\\(for_window \\[[a-z_]*=\"(?i)blueman-manager\"\\]\\) resize set [0-9 x]*|\\1 resize set ${toString p.blueman.w} ${toString p.blueman.h}|g"
-        "s|\\(for_window \\[[a-z_]*=\"(?i)blueman-manager\"\\]\\) move position [0-9 ]*|\\1 move position ${toString p.blueman.x} ${toString p.blueman.y}|g"
-      ] );
-    mkWaybar = p: builtins.concatStringsSep "\n" [
-      "s|font-size: [0-9]*px;|font-size: ${toString p.fonts.waybar}px;|"
-      "s|min-width: [0-9]*px;|min-width: ${toString p.bar.fontMinWidth}px;|"
-      "s|\"height\": [0-9]*|\"height\": ${toString p.bar.height}|"
-      "s|\"icon-size\": [0-9]*|\"icon-size\": ${toString p.bar.iconSize}|"
-      "s|\"spacing\": [0-9]*|\"spacing\": ${toString p.bar.spacing}|"
-    ];
-    mkMako = p: builtins.concatStringsSep "\n" [
-      "s|^font=.*|font=${fam} ${toString p.fonts.mako}|"
-      "s|^margin=[0-9]*|margin=${toString p.mako.margin}|"
-      "s|^padding=[0-9]*|padding=${toString p.mako.padding}|"
-      "s|^border-size=[0-9]*|border-size=${toString p.mako.border}|"
-    ];
-    mkGhost = p: "s|^font-size = [0-9.]*|font-size = ${toString p.fonts.ghostty}|";
-    mkOsd = p: builtins.concatStringsSep "\n" [
-      "s|min-width: [0-9]*px;|min-width: ${toString p.osd.minWidth}px;|"
-      "s|margin: [0-9]*px;|margin: ${toString p.osd.margin}px;|"
-      "s|font-size: [0-9]*px;|font-size: ${toString p.fonts.osd}px;|"
-      "s|-gtk-icon-size: [0-9]*px;|-gtk-icon-size: ${toString p.osd.icon}px;|"
-      "s|min-height: [0-9]*px;|min-height: ${toString p.osd.bar}px;|"
-      "s|margin-left: [0-9]*px;|margin-left: ${toString p.osd.seg}px;|"
-    ];
-    mkGtkIni = p: "s|gtk-cursor-theme-size=.*|gtk-cursor-theme-size=${toString p.cursorSeat}|";
-    # sed patterns go inside bash double-quoted assignments, so quotes AND dollar
-    # signs must be escaped first ($a → the sed append command would otherwise
-    # be expanded by bash as the empty variable $a):
-    esc = s: builtins.replaceStrings [ "\"" "$" ] [ "\\\"" "\\$" ] s;
-    tok = k: p: {
-      o = [ "@FACTOR_${k}@" "@SCALE_${k}@" "@ACCEL_${k}@" "@GTK_FONT_${k}@" "@CURSOR_${k}@"
-            "@SWAY_${k}@" "@WB_${k}@" "@MAKO_${k}@" "@GHOST_${k}@" "@OSD_${k}@" "@GTKINI_${k}@" ];
-      n = [ p.factor (toString p.gtkScale) p.accel (toString p.fonts.gtk) (toString p.cursorSeat)
-            (esc (mkSway p)) (esc (mkWaybar p)) (esc (mkMako p)) (esc (mkGhost p)) (esc (mkOsd p)) (esc (mkGtkIni p)) ];
-    };
-    all = map (k: tok k pres.${k}) [ "720" "1080" "4k" ];
-  in {
-    executable = true;
-    text = builtins.replaceStrings
-      (builtins.concatLists (map (x: x.o) all))
-      (builtins.concatLists (map (x: x.n) all))
-      (builtins.readFile ./sway/scripts/set-res.sh);
-  };
   xdg.configFile."sway/scripts/keys.sh" = {
     source = ./sway/scripts/keys.sh;
     executable = true;
@@ -527,12 +379,37 @@ in
     source = ./sway/scripts/wlsunset-toggle.sh;
     executable = true;
   };
+  # pavucontrol-toggle.sh — toggle from the waybar volume icon. GDK_SCALE
+  # follows the resolution preset (set-res.sh writes SCALE=… to
+  # ~/.config/sway/preset on every switch); fallback = theme value (4K).
+  # Same mechanism as the blueman wrapper. force: set-res.sh rewrites at runtime.
   xdg.configFile."sway/scripts/pavucontrol-toggle.sh" = {
+    force = true;
     executable = true;
-    text = builtins.replaceStrings
-      [ "@PAV_SCALE@" ]
-      [ (toString sizing.display.gtk.pavucontrol) ]
-      (builtins.readFile ./sway/scripts/pavucontrol-toggle.sh);
+    text = ''
+      #!/usr/bin/env sh
+      # Toggle pavucontrol from the waybar volume icon on-click.
+      # If it's running, close it; if not, launch it. The sway for_window rule
+      # (floating + move position, from machine/theme.nix) anchors it on open.
+      #
+      # DETECTION (verified): the real pavucontrol process has:
+      #   comm    = `.pavucontrol-wr`   (a leading dot + `-wr` suffix, NOT `pavucontrol`)
+      #   exe     = .../.pavucontrol-wrapped
+      #   cmdline = `pavucontrol`  (bare name — a `-f '/bin/pavucontrol'` match is NOT it)
+      # So match on the process-name form `.pavucontrol-wr`, which is stable.
+      # `pavucontrol` (no -f) would self-match other processes, and `-f pavucontrol`
+      # matches this script's own argv too. `.pavucontrol-wr` is unambiguous.
+      #
+      # X11 (XWayland) backend is REQUIRED for scaling: GTK3's Wayland backend
+      # ignores GDK_SCALE (verified — identical window size on native Wayland),
+      # the X11 backend honors it.
+      if pgrep -x '.pavucontrol-wr' >/dev/null 2>&1; then
+        pkill -x '.pavucontrol-wr'
+      else
+        [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
+        GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.pavucontrol}}" pavucontrol >/dev/null 2>&1 &
+      fi
+    '';
   };
 
   # swayosd: 2x-scale OSD. force: set-res.sh rewrites at runtime.
@@ -541,29 +418,97 @@ in
     source = ./swayosd/style.css;
   };
 
-  # Waybar config. force: set-res.sh rewrites at runtime.
+  # Waybar config — static content from the template, with bar sizes
+  # substituted from theme.nix. (The @TOKEN@ approach here is deliberate:
+  # generating the entire JSON in Nix would lose the inline comments.)
+  # force: set-res.sh rewrites at runtime; must not back up.
   xdg.configFile."waybar/config.jsonc" = {
     force = true;
     text = builtins.replaceStrings
-      [ "\"icon-size\": 28," "\"spacing\": 10" ]
-      [ ("\"icon-size\": " + toString sizing.bar.iconSize + ",")
-        ("\"spacing\": " + toString sizing.bar.spacing) ]
+      [ "@BAR_ICON_SIZE@" "@BAR_SPACING@" ]
+      [ (toString theme.bar.iconSize) (toString theme.bar.spacing) ]
       (builtins.readFile ./waybar/config.jsonc);
   };
   xdg.configFile."waybar/style.css" = {
     force = true;
-    text = builtins.replaceStrings
-      [ "font-family: \"Cousine Nerd Font\", sans-serif;"
-        "font-size: 36px;"
-        "min-width: 56px;"
-        "#282828" "#ebdbb2" "#bdae93" "#83a598" "#cc241d" "#fabd2f"
-      ]
-      [ ("font-family: \"" + sizing.font.family + "\", sans-serif;")
-        ("font-size: " + toString sizing.font.points.waybar + "px;")
-        ("min-width: " + toString sizing.bar.fontMinWidth + "px;")
-        theme.palette.bg theme.palette.fg theme.palette.fgDim theme.palette.blue theme.palette.red theme.palette.yellow
-      ]
-      (builtins.readFile ./waybar/style.css);
+    text = ''
+      /* waybar — gruvbox, generated from machine/theme.nix */
+      * {
+          border: none;
+          border-radius: 0;
+          font-family: "${theme.font.family}", sans-serif;
+          font-size: ${toString theme.font.points.waybar}px;
+          min-height: 0;
+      }
+
+      window#waybar {
+          background: ${pal.bg};
+          color: ${pal.fg};
+      }
+
+      #workspaces button {
+          padding: 0 6px;
+          min-width: ${toString theme.bar.fontMinWidth}px;
+          background: transparent;
+          color: ${pal.fgDim};
+      }
+
+      #workspaces button.focused {
+          background: ${pal.blue};
+          color: ${pal.bg};
+      }
+
+      #workspaces button.urgent {
+          background: ${pal.red};
+          color: ${pal.fg};
+      }
+
+      #window {
+          font-style: italic;
+      }
+
+      #clock,
+      #battery,
+      #memory,
+      #custom-disk,
+      #temperature,
+      #pulseaudio,
+      #tray {
+          padding: 0 8px;
+          background: transparent;
+      }
+
+      #memory.warning,
+      #custom-disk.warning,
+      #temperature.warning {
+          color: ${pal.yellow};
+      }
+
+      #memory.critical,
+      #custom-disk.critical {
+          color: #fb4934;
+      }
+
+      #battery.warning {
+          color: ${pal.yellow};
+      }
+
+      #battery.critical:not(.charging) {
+          color: #fb4934;
+          animation: blink 1s linear infinite alternate;
+      }
+
+      #temperature.critical {
+          color: #fb4934;
+      }
+
+      @keyframes blink {
+          to {
+              background: ${pal.red};
+              color: ${pal.bg};
+          }
+      }
+    '';
   };
 
   # Kanshi config
@@ -575,11 +520,9 @@ in
     "org/gnome/desktop/interface" = {
       color-scheme = "prefer-dark";
       accent-color = "amber";
-      font-name = "Cousine Nerd Font 18";   # 4K@scale 1: double the default 11pt
+      font-name = "${theme.font.family} 18";
       cursor-theme = theme.cursorTheme;
-      cursor-size = sizing.display.cursor.seat;
-      # Let GTK4 (pavucontrol) use DARK built-in styles for anything the gruvbox
-      # gtk-4.0 theme doesn't cover, so no light leaks.
+      cursor-size = theme.display.cursor.seat;
       gtk-application-prefer-dark-theme = true;
     };
   };
@@ -592,109 +535,20 @@ in
       gtk-theme-name=${theme.gtkTheme}
       gtk-icon-theme-name=Adwaita
       gtk-cursor-theme-name=${theme.cursorTheme}
-      gtk-cursor-theme-size=${toString sizing.display.cursor.seat}
+      gtk-cursor-theme-size=${toString theme.display.cursor.seat}
       gtk-application-prefer-dark-theme=1
     '';
   };
 
-  # GTK4 gruvbox theme for non-libadwaita apps (pavucontrol). gruvbox-dark ships
-  # no gtk-4.0 theme, so GTK_THEME falls back to light — provide one explicitly.
-  xdg.dataFile."themes/gruvbox-dark/gtk-4.0/gtk.css".text = ''
-    /* Gruvbox-dark GTK4 theme (non-libadwaita apps, e.g. pavucontrol). Matches
-       the gruvbox look blueman (GTK3) gets from gtk-3.0/settings.ini. */
-    window, window.background, .background, .view {
-      background-color: ${pal.bg};
-      color: ${pal.fg};
-    }
-    box, grid, .content, stack, list, listview, .list, .rich-list {
-      background-color: ${pal.bg};
-      color: ${pal.fg};
-    }
-    headerbar, .titlebar {
-      background-color: ${pal.bgAlt};
-      color: ${pal.fg};
-      border-bottom: 1px solid ${pal.bgDim};
-    }
-    label { color: ${pal.fg}; }
-    .dim-label, label.dim { color: ${pal.fgDim}; }
-    button {
-      background-color: ${pal.bgAlt};
-      border-color: ${pal.bgDim};
-      color: ${pal.fg};
-      border-radius: 4px;
-    }
-    button:hover { background-color: ${pal.bgDim}; }
-    button:active, button:checked { background-color: ${pal.bgDim}; }
-    button.flat { background: transparent; }
-    /* pavucontrol tabstrip: GtkStackSwitcher (underline style); notebook fallback */
-    .stack-switcher { background-color: ${pal.bgAlt}; padding: 0 8px; }
-    .stack-switcher > button {
-      background: transparent;
-      color: ${pal.fgDim};
-      border: none;
-      box-shadow: none;
-      padding: 8px 20px;                 /* keep tabs readable, not crammed */
-      margin: 0 2px;
-    }
-    .stack-switcher > button:hover { background-color: ${pal.bgDim}; }
-    .stack-switcher > button:checked {
-      background-color: ${pal.bg};
-      color: ${pal.fg};
-      box-shadow: inset 0 -2px 0 ${pal.blue};
-    }
-    notebook, .notebook { background-color: ${pal.bg}; }
-    notebook > header { background-color: ${pal.bgAlt}; }
-    notebook > header > tabs > tab {
-      background-color: ${pal.bgAlt};
-      color: ${pal.fgDim};
-      border-bottom: 2px solid transparent;
-      padding: 8px 20px;                 /* keep tabs readable, not crammed */
-      margin: 0 2px;
-    }
-    notebook > header > tabs > tab:checked {
-      background-color: ${pal.bg};
-      color: ${pal.fg};
-      border-bottom: 2px solid ${pal.blue};
-    }
-    scale trough { background-color: ${pal.bgDim}; min-height: 8px; border-radius: 4px; }
-    scale highlight { background-color: ${pal.blue}; border-radius: 4px; }
-    scale slider { background-color: ${pal.fg}; border: 2px solid ${pal.bgDim}; border-radius: 50%; }
-    entry, spinbutton {
-      background-color: ${pal.bgAlt};
-      border-color: ${pal.bgDim};
-      color: ${pal.fg};
-      caret-color: ${pal.fg};
-    }
-    entry:focus { border-color: ${pal.blue}; }
-    combobox button, combobox { background-color: ${pal.bgAlt}; color: ${pal.fg}; border-color: ${pal.bgDim}; }
-    popover, menu, .menu, .popover, dropdown, combobox > window.popover {
-      background-color: ${pal.bgAlt};
-      color: ${pal.fg};
-      border: 1px solid ${pal.bgDim};
-    }
-    modelbutton { background-color: ${pal.bgAlt}; color: ${pal.fg}; }
-    modelbutton:hover { background-color: ${pal.bgDim}; }
-    textview, textview text { background-color: ${pal.bg}; color: ${pal.fg}; }
-    separator { background-color: ${pal.bgDim}; }
-    frame, frame > border { border: 1px solid ${pal.bgDim}; }
-    row { background-color: ${pal.bg}; color: ${pal.fg}; }
-    row:hover { background-color: ${pal.bgAlt}; }
-    scrollbar { background-color: ${pal.bgAlt}; }
-    scrollbar slider { background-color: ${pal.bgDim}; }
-    check, radio { background-color: ${pal.bgAlt}; color: ${pal.fg}; }
-    check:checked, radio:checked { background-color: ${pal.blue}; }
-    switch { background-color: ${pal.bgDim}; }
-    switch:checked { background-color: ${pal.blue}; }
-    progressbar trough { background-color: ${pal.bgDim}; }
-    progressbar progress { background-color: ${pal.blue}; }
-    tooltip, .osd { background-color: ${pal.bgAlt}; color: ${pal.fg}; border: 1px solid ${pal.bgDim}; }
-  '';
+  # GTK4 gruvbox theme for non-libadwaita apps (pavucontrol).
+  # CSS lives in machine/gtk4-theme.nix, generated from the palette.
+  xdg.dataFile."themes/gruvbox-dark/gtk-4.0/gtk.css".text = gtk4css;
 
   # KDE palette+font (Dolphin): KF6 loads palette from a .colors scheme file
   # via [General] ColorScheme. kdeglobals [Colors:*] overrides are ignored.
   home.file.".config/kdeglobals".text = ''
     [General]
-    font=Cousine Nerd Font,18,-1,5,50,0,0,0,0,0
+    font=${theme.font.family},18,-1,5,50,0,0,0,0,0
     ColorScheme=GruvboxDark
   '';
 
@@ -702,16 +556,13 @@ in
     ./color-schemes/GruvboxDark.colors;
 
   # Kvantum: select the gruvbox theme for all non-KDE Qt apps.
-  # The theme files come from pkgs.gruvbox-kvantum (systemPackages).
   home.file.".config/Kvantum/kvantum.kvconfig".text = ''
     [General]
-    theme=Gruvbox-Dark-Brown
+    theme=${theme.qtTheme}
   '';
 
   # Kvantum theme: symlink the store .svg + patched .kvconfig into
   # ~/.config/Kvantum/ (Kvantum ignores XDG_DATA_DIRS, nixpkgs#355277).
-  # The stock .kvconfig hard-codes flat base colors — our patch sets proper
-  # contrast (frame #282828 / view #3c3836 / zebra #504945 / aqua selection).
   home.file.".config/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.svg".source =
     "${pkgs.gruvbox-kvantum}/share/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.svg";
   home.file.".config/Kvantum/Gruvbox-Dark-Brown/Gruvbox-Dark-Brown.kvconfig".source =

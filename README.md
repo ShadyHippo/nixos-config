@@ -15,15 +15,16 @@ disabled).
   history, no prompt framework
 - **GTK/Qt theming** — kvantum Qt + gruvbox GTK, recolored **hot-pink cursor**
   shared by session and greeter, regreet login
-- **Apps** — Ghostty, VS Code/Neovim, qalculate, Dolphin (NAS/SMB), Zen browser,
+- **Apps** — Ghostty, Neovim, qalculate, Dolphin (NAS/SMB), Zen browser,
   pavucontrol/blueman popups, Steam + Proton GE, **joycond**
-  (combined Joy-Cons), fcitx5 pinyin IME
+  (combined Joy-Cons), fcitx5 pinyin IME (see `machine/fcitx5.nix`), VS Code
+  (see `machine/vscode.nix`)
 - **Emulation** — **RetroDECK flatpak** (`net.retrodeck.retrodeck`) manages all
   emulators (Dolphin, RetroArch, PCSX2, etc.) and their configs. ROMs, BIOS,
   saves, and texture packs live in `~/retrodeck/`. RetroDECK has a built-in
   Backup tool (Configurator → Data Management Tools) for portability.
-- **Hardware** — keyd caps→escape, TLP power, Intel Wi-Fi/BT firmware,
-  `hid_nintendo` driver, iGPU-only rendering
+- **Hardware** — keyd caps→escape, thermald + undervolt, Intel Wi-Fi/BT
+  firmware, `hid_nintendo` driver, iGPU-only rendering (1050 Ti disabled)
 
 ## Packaging: NixOS, mise, and flatpak — which goes where?
 
@@ -53,21 +54,46 @@ RetroDECK is a single flatpak that wraps all emulators. Data lives in two places
 To transfer to a new PC: RetroDECK → Configurator → Data Management Tools →
 Backup RetroDECK → save the `.tar` to NAS → install flatpak on new PC → restore.
 
-## The point of this repo: make it *yours* in two files
+## The `machine/` directory — make it *yours* in one place
 
-This config was designed so a different machine gets a fresh look **without
-hunting through files**. Two files are the entire surface:
+Everything that is specific to **this computer / this user** lives in `machine/`.
+The rest of the repo (`modules/`, `home/`, `configuration.nix`) is generic and
+reusable. A new adopter touches almost nothing outside `machine/`.
 
-| File | What it controls |
-|---|---|
-| **`modules/theming.nix`** | every color (full Gruvbox palette + the hot-pink accent), GTK/Qt theme names, cursor theme, wallpaper |
-| **`modules/sizing.nix`** | **one big file for ALL sizing**: fonts (sway/waybar/mako/ghostty), display scales (global Qt, per-app GTK), cursor sizes, floating popup anchors (pavucontrol/blueman), bar sizes |
+Deleting a file + its one import line in `flake.nix` removes the feature
+entirely — each file below is self-contained.
 
-Sway, Waybar, Mako, Ghostty and the per-app GTK/Qt env all read from those two
-files — change a number, rebuild, done.
+### File-by-file: what to change for a new machine
 
-Per-monitor placement is the one thing NOT in `sizing.nix`: that's
+| File | What it holds | For a new user |
+|---|---|---|
+| **`machine/identity.nix`** | `username`, `hostname` | **Always change.** Drives the NixOS user, home-manager user, hostname, flake config name (`. #<hostname>`), and even the wallpaper path. Imported by flake.nix, configuration.nix, modules/, and home/. |
+| **`machine/theme.nix`** | Palette (gruvbox + hot-pink accent), GTK/Qt theme names, cursor, wallpaper path, font family/sizes, display scales, popup anchors, bar size | **Edit for your taste/screen.** Colors → re-theme everything. `display.*` → rescale for your panel. Font sizes are tuned for 4K@scale 1. Consumed by configuration.nix, modules/desktop.nix, home/, and the generators below — edit it, everything follows. |
+| **`machine/hardware.nix`** | XPS 9570-specific: NVIDIA disable + udev rule, thermald, Dell fan profile unit, undervolt (-160mV), keyd caps→esc | **Often delete outright** if you're not on an XPS 15 9570. Remove `./machine/hardware.nix` from flake.nix. Undervolt values are tuned for this chip — re-measure yours. keyd caps→esc is a preference you may keep. |
+| **`machine/printing.nix`** | Brother MFC-J6555DW drivers (`brgenml1*`), brscan5 scan backend, avahi, scan/print GUIs | **Delete** if you don't have this printer (remove its flake.nix import). If you have a Brother, add your model's IP/nodename in `hardware.sane.brscan5.netDevices` (there's an example comment). |
+| **`machine/fcitx5.nix`** | Simplified-Chinese Pinyin IME: system `i18n.inputMethod`, CJK font, user configs, sway autostart + `$mod+Shift+t` toggle | **Delete** if you don't need Chinese input (remove its flake.nix import). Nothing else depends on it. |
+| **`machine/vscode.nix`** | VS Code: extensions, user settings, keybindings, icon fix | **Delete or edit** to your taste (remove its flake.nix import). The package installs via home-manager's `programs.vscode`, so removal is complete. |
+| **`machine/resolution.nix`** + **`machine/set-res.sh`** | `$mod+F10/F11/F12` resolution presets (720p/1080p/4K) for the Sharp 4K panel — preset math + sed-generators + the script template | **Delete both** unless you have a panel with a fixed scaler like this one (remove the import in `home/default.nix`). If you keep it: values derive from `theme.nix`, nothing else to edit. |
+| **`machine/gtk4-theme.nix`** | GTK4 gruvbox CSS for non-libadwaita apps (pavucontrol), generated from the palette | **Keep** — it only uses palette values; if you change the palette in `theme.nix` it follows automatically. If you must remove it, delete the import in `home/default.nix` and the `xdg.dataFile` entry that uses it. |
+
+Sway, Waybar, Mako, Ghostty and the per-app GTK/Qt env all read from
+`machine/theme.nix` — change a number, rebuild, done.
+
+Per-monitor placement is NOT in `theme.nix`: that's
 `home/kanshi/config` (it maps outputs to *your* desks, not a global scale).
+
+> **A note for LLM adopters:** this config was deliberately written so that
+> `machine/` is the ONLY directory you need to reason about to port it.
+> Everything machine-specific + optional lives there. Two import sites matter:
+> **flake.nix** imports `hardware.nix`, `printing.nix`, `fcitx5.nix`,
+> `vscode.nix` (remove the line to drop the feature); **home/default.nix**
+> imports `theme.nix`, `resolution.nix`, and `gtk4-theme.nix` (and reads
+> `identity.nix`). Treat each file as an independent, removable unit — nothing
+> outside `machine/` is machine-tuned. Beware of `machine/resolution.nix`: it
+> looks like a module but is really a script generator with sed-pattern
+> metaprogramming; delete it whole rather than editing it. `home/sway/config`
+> is the static sway config; dynamic values (font, colors, popups) append via
+> `extraConfig` from `theme.nix`.
 
 ## Reproducing on your own hardware
 
@@ -75,11 +101,17 @@ Per-monitor placement is the one thing NOT in `sizing.nix`: that's
 2. **Generate your hardware config**: `sudo nixos-generate-config --root /` and
    copy the resulting `hardware-configuration.nix` over the one here (mine is
    XPS-9570-specific).
-3. **Look the part**: edit `modules/theming.nix` and `modules/sizing.nix`
-   (screen size → scales; taste → colors). Adjust `home/kanshi/config`.
-4. **You**: if your username isn't `hippo`, update `users.users.hippo` in
-   `modules/base.nix` and `home.username` in `home/default.nix`.
-5. Build: `sudo nixos-rebuild switch --flake .#hippo-xps`
+3. **You**: edit `machine/identity.nix` (username, hostname).
+4. **Hardware**: delete `machine/hardware.nix` and `machine/printing.nix`
+   (remove their imports in `flake.nix`), and `machine/resolution.nix` +
+   `machine/set-res.sh` (remove the import in `home/default.nix`) if they
+   don't apply — see the table above.
+5. **Look the part**: edit `machine/theme.nix` (screen size → scales; taste →
+   colors). Adjust `home/kanshi/config` for your monitors.
+6. **Optional features**: delete `machine/fcitx5.nix` (IME) or
+   `machine/vscode.nix` if you don't want them.
+7. Build: `sudo nixos-rebuild switch --flake .#<hostname from machine/identity.nix>` \
+   (for this machine: `.#hippo-xps`)
 
 ## Keybindings (`$mod` = Super/Windows key)
 
@@ -92,7 +124,7 @@ fullscreen, `$mod+r` resize mode, workspaces/scratchpad, …).
 Intended for games/streaming on the 4K panel. The iGPU composites at the low
 resolution and the panel's fixed scaler upscales to 3840×2160 — so every
 framebuffer px is 2 (1080p) or 3 (720p) physical px. `set-res.sh` re-derives
-**everything** per preset from `modules/sizing.nix` (`presets`) and applies it
+**everything** per preset from `machine/theme.nix` and applies it
 live: fonts (sway/waybar/mako/ghostty/GTK/swayosd), bar size, notification
 margins, cursor size, mouse speed, popup anchors — open terminals even update
 in place (ghostty SIGUSR2 config reload).
@@ -149,16 +181,25 @@ split (stock). The resize mode (`$mod+r`) also uses vim keys.
 ## Layout
 
 ```
-flake.nix               # entry: nixpkgs pins, system, home-manager
-configuration.nix       # machine-level glue (env vars via theming/sizing)
-modules/
-  base.nix              # system packages, users, ssh, basics
-  hardware.nix          # XPS-specific: kernel modules, firmware, TLP, BT
-  theming.nix           # ← ALL colors/theme choices (pure data)
-  sizing.nix            # ← ONE BIG FILE: all fonts/scales/anchors (pure data)
-  desktop.nix           # sway/regreet/GTK+Qt theming plumbing
+flake.nix               # entry: nixpkgs pins, system, home-manager, machine/ imports
+configuration.nix       # machine-level glue (env vars via machine/theme.nix)
+hardware-configuration.nix  # generated by nixos-generate-config (machine-specific)
+machine/                # ← EVERYTHING per-device / per-user (see table above)
+  identity.nix          # username, hostname
+  theme.nix             # palette, fonts, scales, popup anchors (pure data)
+  hardware.nix          # XPS 9570 tuning: undervolt, thermald, keyd
+  printing.nix          # Brother MFC-J6555DW
+  fcitx5.nix            # Pinyin IME (system + user + sway wiring)
+  vscode.nix            # VS Code config + extensions
+  resolution.nix        # $mod+F10/11/12 presets (generates set-res.sh)
+  gtk4-theme.nix        # GTK4 CSS, generated from theme.nix palette
+  set-res.sh            # template read by resolution.nix
+modules/                # generic, reusable on any machine
+  base.nix              # boot, firmware blacklist, locale, users, system packages
+  desktop.nix           # sway/regreet/GTK+Qt theming plumbing, fonts, portals
   apps.nix dev.nix audio.nix gaming.nix
-home/
-  default.nix           # home-manager: shells, scripts, dotfiles wiring
-  sway/ waybar/ mako/ ghostty/ fuzzel/ kanshi/ swayosd/ cursor/ kvantum/
+  hardware-generic.nix  # graphics, bluetooth, fwupd — anything machine-agnostic
+home/                   # per-user (session) config
+  default.nix           # home-manager hub: packages, shell, sway, waybar, theming
+  sway/ waybar/ fuzzel/ kanshi/ swayosd/ cursor/ kvantum/ color-schemes/
 ```
