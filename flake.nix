@@ -39,7 +39,7 @@
           };
         };
         modules = [
-	  ./hardware-configuration.nix
+          ./hardware-configuration.nix
           ./configuration.nix
           ./modules/base.nix
           ./modules/apps.nix
@@ -52,8 +52,8 @@
           ./machine/printing.nix
           ./machine/fcitx5.nix
           ./machine/vscode.nix
-	  home-manager.nixosModules.home-manager
-	  {
+          home-manager.nixosModules.home-manager
+          {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.extraSpecialArgs = { inherit inputs; };
@@ -61,17 +61,17 @@
             # real file.
             home-manager.backupFileExtension = "bak";
             home-manager.users.${identity.username} = {
-	      imports = [
+              imports = [
                 ./home
                 inputs.nix-flatpak.homeManagerModules.nix-flatpak
               ];
 
-	      _module.args.unstable = import nixpkgs-unstable {
+              _module.args.unstable = import nixpkgs-unstable {
                 inherit system;
-		config.allowUnfree = true;
-	      };
-	    };
-	  }
+                config.allowUnfree = true;
+              };
+            };
+          }
         ];
       };
     };
