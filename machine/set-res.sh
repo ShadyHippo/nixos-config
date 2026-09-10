@@ -45,12 +45,13 @@ PRE="$HOME/.config/sway/preset"
 exec 9>"$HOME/.config/sway/set-res.lock"
 flock 9
 
-# 0) Close open volume/bluetooth popups. GDK_SCALE is fixed at LAUNCH, so an
-#    already-open window cannot be rescaled — closing it now means the next
-#    open is correctly-sized AND pre-positioned (the sway for_window rules run
-#    at map time, so it appears in place — no teleport flash).
+# 0) Close open volume/bluetooth popups. Scale is fixed at LAUNCH (GDK_SCALE
+#    for pavucontrol, QT_SCALE_FACTOR for bluejay), so an already-open window
+#    cannot be rescaled — closing it now means the next open is correctly-sized
+#    AND pre-positioned (the sway for_window rules run at map time, so it
+#    appears in place — no teleport flash).
 swaymsg '[app_id="(?i)pavucontrol"]' kill >/dev/null 2>&1 || true
-swaymsg '[app_id="(?i)blueman-manager"]' kill >/dev/null 2>&1 || true
+swaymsg '[app_id="(?i)io.github.ebonjaeger.bluejay"]' kill >/dev/null 2>&1 || true
 
 # 1) Sway: values + the output mode line all live in the config, applied by
 #    `swaymsg reload`. Modes are the fragile part: switching CUSTOM→CUSTOM
@@ -110,8 +111,9 @@ export GSETTINGS_SCHEMA_DIR="${GSETTINGS_SCHEMA_DIR:-$(ls -d /nix/store/*-gsetti
 gsettings set org.gnome.desktop.interface font-name "Cousine Nerd Font $GTK_FONT" || true
 gsettings set org.gnome.desktop.interface cursor-size "$CURSOR" || true
 
-# 6) Record the scale for app launchers (pavucontrol-toggle.sh, blueman wrapper)
-#    so future opens match this preset.
+# 6) Record the scale for app launchers (pavucontrol-toggle.sh) so future
+#    opens match this preset. (bluejay scales itself via the global
+#    QT_SCALE_FACTOR — it reads no preset file.)
 printf 'SCALE=%s\n' "$SCALE" > "$PRE"
 
 notify-send "$preset preset applied" "UI ×$FACTOR · mouse $ACCEL · volume/bluetooth closed — reopen: \$mod+b / volume icon"

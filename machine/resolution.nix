@@ -61,7 +61,7 @@ let
       seg      = f.osd.seg;
     };
     pavu    = { x = f.pavu.x;     y = f.pavu.y; };
-    blueman = { w = f.blueman.w;  h = f.blueman.h; x = f.blueman.x; y = f.blueman.y; };
+    bluejay = { w = f.bluejay.w; h = f.bluejay.h; x = f.bluejay.x; y = f.bluejay.y; };
   };
 
   presets = {
@@ -76,8 +76,8 @@ let
       mako = { margin = td makoMargin; padding = td makoPadding; border = td makoBorder; };
       osd = { minWidth = td 500; margin = td 64; icon = td 64; bar = td 24; seg = td 32; };
       pavu = { x = td popups.pavucontrol.x; y = td popups.pavucontrol.y; };
-      blueman = { w = td popups.blueman.w; h = td popups.blueman.h;
-                  x = td popups.blueman.x; y = td popups.blueman.y; };
+      bluejay = { w = td popups.bluejay.w; h = td popups.bluejay.h;
+                  x = td popups.bluejay.x; y = td popups.bluejay.y; };
     };
     "1080" = mk {
       factor = "1/2"; mode = "mode --custom 1920x1080 scale 1"; gtkScale = hd 2; accel = "0.3";
@@ -90,8 +90,8 @@ let
       mako = { margin = hd makoMargin; padding = hd makoPadding; border = hd makoBorder; };
       osd = { minWidth = hd 500; margin = hd 64; icon = hd 64; bar = hd 24; seg = hd 32; };
       pavu = { x = hd popups.pavucontrol.x; y = hd popups.pavucontrol.y; };
-      blueman = { w = hd popups.blueman.w; h = hd popups.blueman.h;
-                  x = hd popups.blueman.x; y = hd popups.blueman.y; };
+      bluejay = { w = hd popups.bluejay.w; h = hd popups.bluejay.h;
+                  x = hd popups.bluejay.x; y = hd popups.bluejay.y; };
     };
     "4k" = mk {
       factor = "1"; mode = "native"; gtkScale = 2; accel = "0.6";
@@ -104,8 +104,8 @@ let
       mako = { margin = makoMargin; padding = makoPadding; border = makoBorder; };
       osd = { minWidth = 500; margin = 64; icon = 64; bar = 24; seg = 32; };
       pavu = { x = popups.pavucontrol.x; y = popups.pavucontrol.y; };
-      blueman = { w = popups.blueman.w; h = popups.blueman.h;
-                  x = popups.blueman.x; y = popups.blueman.y; };
+      bluejay = { w = popups.bluejay.w; h = popups.bluejay.h;
+                  x = popups.bluejay.x; y = popups.bluejay.y; };
     };
   };
 
@@ -118,8 +118,8 @@ let
         "s|pointer_accel .*|pointer_accel ${p.accel}|"
         "s|^titlebar_padding .*|titlebar_padding ${toString p.titlebar}|"
         "s|\\(for_window \\[[a-z_]*=\"(?i)pavucontrol\"\\]\\) move position [0-9 ]*|\\1 move position ${toString p.pavu.x} ${toString p.pavu.y}|g"
-        "s|\\(for_window \\[[a-z_]*=\"(?i)blueman-manager\"\\]\\) resize set [0-9 x]*|\\1 resize set ${toString p.blueman.w} ${toString p.blueman.h}|g"
-        "s|\\(for_window \\[[a-z_]*=\"(?i)blueman-manager\"\\]\\) move position [0-9 ]*|\\1 move position ${toString p.blueman.x} ${toString p.blueman.y}|g"
+        "s|\\(for_window \\[[a-z_]*=\"(?i)io.github.ebonjaeger.bluejay\"\\]\\) resize set [0-9 x]*|\\1 resize set ${toString p.bluejay.w} ${toString p.bluejay.h}|g"
+        "s|\\(for_window \\[[a-z_]*=\"(?i)io.github.ebonjaeger.bluejay\"\\]\\) move position [0-9 ]*|\\1 move position ${toString p.bluejay.x} ${toString p.bluejay.y}|g"
       ] );
   mkWaybar = p: builtins.concatStringsSep "\n" [
     "s|font-size: [0-9]*px;|font-size: ${toString p.fonts.waybar}px;|"

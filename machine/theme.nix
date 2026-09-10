@@ -56,9 +56,9 @@
     scale  = 1;               # sway output scale
     qt     = 1.5;             # global QT_SCALE_FACTOR (Dolphin, Moonlight, VLC…)
     gtk    = {
-      # GTK3's Wayland backend ignores GDK_SCALE — both apps are forced onto
-      # XWayland via GDK_BACKEND=x11, where it works.
-      blueman     = 2;        # via blueman package wrapper
+      # GTK3's Wayland backend ignores GDK_SCALE — pavucontrol is forced onto
+      # XWayland via GDK_BACKEND=x11, where it works. (bluejay is Qt6: the
+      # global QT_SCALE_FACTOR above already scales it.)
       pavucontrol = 2;        # fallback in pavucontrol-toggle.sh (default = 4K)
     };
     cursor = {
@@ -71,7 +71,10 @@
   # ── FLOATING POPUP WINDOWS (anchored under the bar) ──
   popups = {
     pavucontrol = { x = 2310; y = 1310; };
-    blueman     = { w = 1060; h = 500; x = 2775; y = 1610; };
+    # bluejay runs at the global QT_SCALE_FACTOR 1.5, so physical size =
+    # logical × 1.5. 4K-preset values below; retune with $mod+r if needed.
+    # Same bottom/right anchor as the old 800x380 popup (3575, 2110).
+    bluejay     = { w = 1600; h = 760; x = 2235; y = 1350; };
   };
 
   # ── TOP BAR (waybar) ──

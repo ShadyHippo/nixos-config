@@ -1,8 +1,13 @@
-# Gruvbox Dark color scheme for KDE apps (Dolphin, etc.)
-# KF6 loads the active palette from a .colors scheme file (kdeglobals [General]
-# ColorScheme) - NOT from [Colors:*] overrides in kdeglobals. Place in
-# ~/.local/share/color-schemes/ and set ColorScheme in kdeglobals.
-# Colors are R,G,B integers (KConfig QColor format). Palette: gruvbox dark.
+# Gruvbox Dark color scheme for KDE apps (Dolphin).
+# TWO consumers read this:
+#  1) QWidgets/KDE apps (Dolphin): the Qt platform theme (kde) resolves the
+#     scheme NAME from kdeglobals [General] ColorScheme and loads this file.
+#  2) Kirigami/QML apps (bluejay): raw KColorScheme reads the [Colors:*]
+#     groups STRAIGHT from kdeglobals — it NEVER resolves the scheme name
+#     (frameworks/kcolorscheme initFromConfig) — so home/default.nix also
+#     inlines this whole file into ~/.config/kdeglobals. Missing groups =
+#     hardcoded Breeze Light fallback (the old "bluejay is white" bug).
+# Single source of truth for both: edit here, rebuild.
 #
 # CONTRAST HIERARCHY (so the UI doesn't melt into one flat brown blob):
 #   frame/chrome (Window, Header) = bg0  #282828  (dark)

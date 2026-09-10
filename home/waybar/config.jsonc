@@ -13,6 +13,7 @@
         "custom/disk",
         "temperature",
         "battery",
+        "bluetooth",
         "tray",
         "clock"
     ],
@@ -93,6 +94,19 @@
         "format-charging": " \uF0E7 {capacity}%",
         "format-icons": ["\uF244", "\uF243", "\uF242", "\uF241", "\uF240"],
         "interval": 30
+    },
+
+    // Bluetooth: \uF293 (MDI bluetooth, in Cousine Nerd Font). Bluejay has no
+    // tray applet, so status lives here instead. Click = toggle the manager.
+    "bluetooth": {
+        "format": " \uF293",
+        "format-connected": " \uF293 {num_connections}",
+        "format-disabled": " \uF293",
+        "format-no-controller": "",
+        "tooltip-format": "{controller_alias}\t{controller_address}\n\n{num_connections} connected",
+        "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
+        "on-click": "~/.config/sway/scripts/bluejay-toggle.sh"
     },
 
     "tray": {

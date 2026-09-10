@@ -7,7 +7,7 @@ let
   pal = theme.palette;
 in ''
   /* Gruvbox-dark GTK4 theme (non-libadwaita apps, e.g. pavucontrol). Matches
-     the gruvbox look blueman (GTK3) gets from gtk-3.0/settings.ini. */
+     the gruvbox look GTK3 apps get from gtk-3.0/settings.ini. */
   window, window.background, .background, .view {
     background-color: ${pal.bg};
     color: ${pal.fg};

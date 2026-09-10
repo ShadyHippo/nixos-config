@@ -44,24 +44,12 @@ in
     libwebp                # cwebp (required by scripts/build_db.py)
     kdePackages.dolphin    # file manager
     pavucontrol            # per-app volume (XWayland wrapper via launch script)
-
-    # Blueman GDK_SCALE wrapper: GTK3's Wayland backend ignores GDK_SCALE, so
-    # blueman-manager is forced onto XWayland (GDK_BACKEND=x11). The shim reads
-    # the current resolution preset (~/.config/sway/preset) so the scale
-    # follows set-res.sh.
-    (blueman.overrideAttrs (old: {
-      postFixup = (old.postFixup or "") + ''
-        mv $out/bin/blueman-manager $out/bin/.blueman-manager-real
-        cat > $out/bin/blueman-manager <<'SHIM'
-        #!/bin/sh
-        # GDK_SCALE from the resolution preset (set-res.sh), fallback = 4K scale.
-        [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
-        export GDK_BACKEND=x11
-        export GDK_SCALE="''${SCALE:-${toString theme.display.gtk.blueman}}"
-        exec "$(dirname "$0")/.blueman-manager-real" "$@"
-        SHIM
-        chmod +x $out/bin/blueman-manager
-      '';
+    # Bluejay (Qt6/QML Kirigami) needs the QQC2 Desktop Style (org.kde.desktop)
+    # in its QML import path, or QtQuickControls falls back to the light Basic
+    # style (white window). The style paints via QStyle (kvantum) + the KDE
+    # color scheme (GruvboxDark), so it matches Dolphin once present.
+    (pkgs.bluejay.overrideAttrs (old: {
+      buildInputs = (old.buildInputs or []) ++ [ pkgs.kdePackages.qqc2-desktop-style ];
     }))
   ];
 
@@ -324,7 +312,7 @@ in
     checkConfig = false;
     extraConfig = let
       pavu = theme.popups.pavucontrol;
-      blu  = theme.popups.blueman;
+      blu  = theme.popups.bluejay;
     in
       (builtins.readFile ./sway/config) + ''
       # ── Dynamic values from machine/theme.nix (appended: last-wins) ──
@@ -341,10 +329,9 @@ in
       # Floating popup anchors (from theme.nix popups)
       for_window [app_id="(?i)pavucontrol"] move position ${toString pavu.x} ${toString pavu.y}
       for_window [class="(?i)pavucontrol"] move position ${toString pavu.x} ${toString pavu.y}
-      for_window [app_id="(?i)blueman-manager"] resize set ${toString blu.w} ${toString blu.h}
-      for_window [class="(?i)blueman-manager"] resize set ${toString blu.w} ${toString blu.h}
-      for_window [app_id="(?i)blueman-manager"] move position ${toString blu.x} ${toString blu.y}
-      for_window [class="(?i)blueman-manager"] move position ${toString blu.x} ${toString blu.y}
+      # bluejay: Qt6 native Wayland — no X11 class, app_id only.
+      for_window [app_id="(?i)io.github.ebonjaeger.bluejay"] resize set ${toString blu.w} ${toString blu.h}
+      for_window [app_id="(?i)io.github.ebonjaeger.bluejay"] move position ${toString blu.x} ${toString blu.y}
 
       # Auto-float XWayland dialogs/popups. NOTE: window_role/window_type are
       # X11-only criteria (man 5 sway); native Wayland windows (e.g. Dolphin's
@@ -379,10 +366,15 @@ in
     source = ./sway/scripts/wlsunset-toggle.sh;
     executable = true;
   };
+  xdg.configFile."sway/scripts/bluejay-toggle.sh" = {
+    source = ./sway/scripts/bluejay-toggle.sh;
+    executable = true;
+  };
   # pavucontrol-toggle.sh — toggle from the waybar volume icon. GDK_SCALE
   # follows the resolution preset (set-res.sh writes SCALE=… to
   # ~/.config/sway/preset on every switch); fallback = theme value (4K).
-  # Same mechanism as the blueman wrapper. force: set-res.sh rewrites at runtime.
+  # (bluejay needs no shim: it scales via the global QT_SCALE_FACTOR.)
+  # force: set-res.sh rewrites at runtime.
   xdg.configFile."sway/scripts/pavucontrol-toggle.sh" = {
     force = true;
     executable = true;
@@ -469,6 +461,7 @@ in
 
       #clock,
       #battery,
+      #bluetooth,
       #memory,
       #custom-disk,
       #temperature,
@@ -500,6 +493,15 @@ in
 
       #temperature.critical {
           color: #fb4934;
+      }
+
+      #bluetooth.connected {
+          color: ${pal.accent};
+      }
+
+      #bluetooth.off,
+      #bluetooth.disabled {
+          color: ${pal.gray};
       }
 
       @keyframes blink {
@@ -544,13 +546,18 @@ in
   # CSS lives in machine/gtk4-theme.nix, generated from the palette.
   xdg.dataFile."themes/gruvbox-dark/gtk-4.0/gtk.css".text = gtk4css;
 
-  # KDE palette+font (Dolphin): KF6 loads palette from a .colors scheme file
-  # via [General] ColorScheme. kdeglobals [Colors:*] overrides are ignored.
+  # KDE palette+font (Dolphin) + KColorScheme source for Kirigami apps
+  # (bluejay). The Qt platform theme (kde) resolves the .colors SCHEME FILE
+  # via [General] ColorScheme for QWidgets palettes — but raw KColorScheme,
+  # which drives Kirigami/QML theming, reads the [Colors:*] groups STRAIGHT
+  # from kdeglobals and falls back to hardcoded Breeze Light when they're
+  # absent (that was the white bluejay). So inline the scheme groups here;
+  # the .colors file keeps the name-resolution side. Single source of truth.
   home.file.".config/kdeglobals".text = ''
     [General]
     font=${theme.font.family},18,-1,5,50,0,0,0,0,0
     ColorScheme=GruvboxDark
-  '';
+  '' + builtins.readFile ./color-schemes/GruvboxDark.colors;
 
   home.file.".local/share/color-schemes/GruvboxDark.colors".source =
     ./color-schemes/GruvboxDark.colors;

@@ -16,7 +16,7 @@ disabled).
 - **GTK/Qt theming** — kvantum Qt + gruvbox GTK, recolored **hot-pink cursor**
   shared by session and greeter, regreet login
 - **Apps** — Ghostty, Neovim, qalculate, Dolphin (NAS/SMB), Zen browser,
-  pavucontrol/blueman popups, Steam + Proton GE, **joycond**
+  pavucontrol/Bluejay popups, Steam + Proton GE, **joycond**
   (combined Joy-Cons), fcitx5 pinyin IME (see `machine/fcitx5.nix`), VS Code
   (see `machine/vscode.nix`)
 - **Emulation** — **RetroDECK flatpak** (`net.retrodeck.retrodeck`) manages all
@@ -146,7 +146,7 @@ font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
 | `$mod+n` | notification history (mako buffer via fuzzel viewer) |
 | `$mod+o` | wlsunset nightlight toggle (warm orange ~4000K, no timer) |
 | `$mod+Shift+Return` | new Zen browser window |
-| `$mod+b` | blueman bluetooth manager (2×-scaled floating popup) |
+| `$mod+b` | Bluejay bluetooth manager toggle (floating popup; status in waybar) |
 
 ### IME (works in every app)
 
@@ -174,8 +174,9 @@ split (stock). The resize mode (`$mod+r`) also uses vim keys.
   play/pause/next/prev → playerctl.
 - caps → Esc via `keyd` (system-wide).
 - `$mod+Shift+e` quits sway (confirmation nag); `$mod+Shift+c` reloads config.
-- Window rules: Signal/Discord → workspace 9, Slack → 8; pavucontrol/blueman
-  float as 2×-scaled popups anchored to their tray icons; Dolphin dialogs float.
+- Window rules: Signal/Discord → workspace 9, Slack → 8; pavucontrol floats as
+  a 2×-scaled popup, Bluejay (Qt6, QT_SCALE_FACTOR 1.5) as a popup anchored
+  near the tray; Dolphin dialogs float.
 - Bar sits at the **bottom**; focus follows mouse; the cursor never auto-hides.
 
 ## Layout

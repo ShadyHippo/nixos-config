@@ -53,10 +53,10 @@ in
   # Here we handle the GTK side.
   environment.systemPackages = [
     pkgs.adwaita-icon-theme   # GTK/tray icons
-    pkgs.gruvbox-dark-gtk     # GTK apps (blueman, nm-applet, portals) in gruvbox
+    pkgs.gruvbox-dark-gtk     # GTK apps (nm-applet, portals) in gruvbox
     pkgs.gruvbox-kvantum      # Kvantum Qt theme (Gruvbox-Dark-Brown)
   ];
-  # GTK3/4 apps (blueman, nm-applet, portals): force the gruvbox theme.
+  # GTK3/4 apps (nm-applet, portals): force the gruvbox theme.
   environment.variables.GTK_THEME = theme.gtkTheme;
 
   # ---- Portals (screenshare/file dialogs under Wayland) ----------------------

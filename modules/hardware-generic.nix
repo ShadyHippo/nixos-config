@@ -15,7 +15,7 @@
   # ---- Bluetooth -------------------------------------------------------------
   hardware.bluetooth = {
     enable = true;
-    powerOnBoot = false;   # battery; toggle with rfkill or blueman
+    powerOnBoot = false;   # battery; toggle with rfkill or bluejay
   };
 
   # ---- Nintendo Switch controllers (Joy-Con / Pro) ---------------------------
