@@ -143,16 +143,15 @@ let
     "s|min-height: [0-9]*px;|min-height: ${toString p.osd.bar}px;|"
     "s|margin-left: [0-9]*px;|margin-left: ${toString p.osd.seg}px;|"
   ];
-  mkGtkIni = p: "s|gtk-cursor-theme-size=.*|gtk-cursor-theme-size=${toString p.cursorSeat}|";
   # sed patterns go inside bash double-quoted assignments, so quotes AND dollar
   # signs must be escaped first ($a → the sed append command would otherwise
   # be expanded by bash as the empty variable $a):
   esc = s: builtins.replaceStrings [ "\"" "$" ] [ "\\\"" "\\$" ] s;
   tok = k: p: {
     o = [ "@FACTOR_${k}@" "@SCALE_${k}@" "@ACCEL_${k}@" "@GTK_FONT_${k}@" "@CURSOR_${k}@"
-          "@SWAY_${k}@" "@WB_${k}@" "@MAKO_${k}@" "@GHOST_${k}@" "@OSD_${k}@" "@GTKINI_${k}@" ];
+          "@SWAY_${k}@" "@WB_${k}@" "@MAKO_${k}@" "@GHOST_${k}@" "@OSD_${k}@" ];
     n = [ p.factor (toString p.gtkScale) p.accel (toString p.fonts.gtk) (toString p.cursorSeat)
-          (esc (mkSway p)) (esc (mkWaybar p)) (esc (mkMako p)) (esc (mkGhost p)) (esc (mkOsd p)) (esc (mkGtkIni p)) ];
+          (esc (mkSway p)) (esc (mkWaybar p)) (esc (mkMako p)) (esc (mkGhost p)) (esc (mkOsd p)) ];
   };
   all = map (k: tok k presets.${k}) [ "720" "1080" "4k" ];
 in

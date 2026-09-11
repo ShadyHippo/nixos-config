@@ -21,13 +21,13 @@ preset="${1:?usage: $0 720|1080|4k}"
 case "$preset" in
   720)  FACTOR="@FACTOR_720@" SCALE="@SCALE_720@" ACCEL="@ACCEL_720@"
         GTK_FONT="@GTK_FONT_720@" CURSOR="@CURSOR_720@"
-        SWAY="@SWAY_720@" WAYBAR="@WB_720@" MAKO="@MAKO_720@" GHOST="@GHOST_720@" OSD="@OSD_720@" GTKINI_SED="@GTKINI_720@" ;;
+        SWAY="@SWAY_720@" WAYBAR="@WB_720@" MAKO="@MAKO_720@" GHOST="@GHOST_720@" OSD="@OSD_720@" ;;
   1080) FACTOR="@FACTOR_1080@" SCALE="@SCALE_1080@" ACCEL="@ACCEL_1080@"
         GTK_FONT="@GTK_FONT_1080@" CURSOR="@CURSOR_1080@"
-        SWAY="@SWAY_1080@" WAYBAR="@WB_1080@" MAKO="@MAKO_1080@" GHOST="@GHOST_1080@" OSD="@OSD_1080@" GTKINI_SED="@GTKINI_1080@" ;;
+        SWAY="@SWAY_1080@" WAYBAR="@WB_1080@" MAKO="@MAKO_1080@" GHOST="@GHOST_1080@" OSD="@OSD_1080@" ;;
   4k)   FACTOR="@FACTOR_4k@" SCALE="@SCALE_4k@" ACCEL="@ACCEL_4k@"
         GTK_FONT="@GTK_FONT_4k@" CURSOR="@CURSOR_4k@"
-        SWAY="@SWAY_4k@" WAYBAR="@WB_4k@" MAKO="@MAKO_4k@" GHOST="@GHOST_4k@" OSD="@OSD_4k@" GTKINI_SED="@GTKINI_4k@" ;;
+        SWAY="@SWAY_4k@" WAYBAR="@WB_4k@" MAKO="@MAKO_4k@" GHOST="@GHOST_4k@" OSD="@OSD_4k@" ;;
   *) echo "usage: $0 720|1080|4k" >&2; exit 1 ;;
 esac
 
@@ -37,7 +37,6 @@ WB_CSS="$HOME/.config/waybar/style.css"
 MAKO_CFG="$HOME/.config/mako/config"
 GHOST_CFG="$HOME/.config/ghostty/config"
 OSD_CSS="$HOME/.config/swayosd/style.css"
-GTKINI="$HOME/.config/gtk-3.0/settings.ini"
 PRE="$HOME/.config/sway/preset"
 
 # Serialize runs: two key presses overlapping would interleave the config seds
@@ -98,12 +97,13 @@ printf '%s\n' "$OSD" | sed -i -f /dev/stdin "$OSD_CSS"
 pkill -x .swayosd-server 2>/dev/null || true
 swaymsg exec swayosd-server
 
-# 5) GTK cursor size in gtk-3.0/settings.ini (new XWayland apps read it at
-#    launch) + live dconf values (font-name for GTK dialogs, cursor-size).
+# 5) Live dconf values (font-name for GTK dialogs, cursor-size).
 #    Best-effort (|| true): a gsettings failure must never abort the script
 #    before the payload write + the "preset applied" toast below (it did once —
 #    gsettings was missing from the system, so nothing past here ever ran).
-printf '%s\n' "$GTKINI_SED" | sed -i -f /dev/stdin "$GTKINI"
+#    (gsettings-visible GTK keys beat settings.ini — see theming notes — so the
+#    old sed-rewrite of gtk-3.0/settings.ini was removed along with the dead
+#    handwritten gtk4 css; the home-manager gtk module owns settings.ini now.)
 # gsettings can't see schemas in sway's exec env (regreet doesn't source the
 # profile XDG_DATA_DIRS that login shells get), so point at the schema dir
 # directly. Resolved every run (survives rebuilds); empty = calls no-op below.

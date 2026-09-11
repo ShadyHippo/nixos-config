@@ -4,6 +4,10 @@ let
   theme  = import ../machine/theme.nix;
   identity = import ../machine/identity.nix;
   pal    = theme.palette;
+  # pavucontrol 6.x is GTK4/gtkmm (non-libadwaita): its only theming path is
+  # GTK_THEME + a gtk-4.0/gtk.css in the theme dir — the gruvbox package ships
+  # none, so one is generated from the palette. NOT cruft (removed once, broke
+  # pavucontrol).
   gtk4css = import ../machine/gtk4-theme.nix theme;
   resolution = import ../machine/resolution.nix theme;
 
@@ -44,6 +48,13 @@ in
     libwebp                # cwebp (required by scripts/build_db.py)
     kdePackages.dolphin    # file manager
     pavucontrol            # per-app volume (XWayland wrapper via launch script)
+    # Fuzzel/app-menu launches hit the package .desktop (plain `pavucontrol`),
+    # losing the GDK_SCALE/XWayland env → unscaled native window. Same env as
+    # pavucontrol-toggle.sh; reads the resolution preset SCALE set by set-res.sh.
+    (pkgs.writeShellScriptBin "pavucontrol-scaled" ''
+      [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
+      exec env GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.pavucontrol}}" pavucontrol
+    '')
     # Bluejay (Qt6/QML Kirigami) needs the QQC2 Desktop Style (org.kde.desktop)
     # in its QML import path, or QtQuickControls falls back to the light Basic
     # style (white window). The style paints via QStyle (kvantum) + the KDE
@@ -60,6 +71,20 @@ in
     terminal = false;
     categories = ["Utility" "Monitor"];
     icon = "battery-full";
+  };
+
+  # Same file id as the package entry → overrides it in ~/.local/share/
+  # applications, so fuzzel launches the scaled (XWayland) wrapper instead of
+  # bare `pavucontrol`. Keep the original Name/Icon/Keywords for searchability.
+  xdg.desktopEntries."org.pulseaudio.pavucontrol" = {
+    name = "Volume Control";
+    genericName = "Volume Control";
+    comment = "Adjust the volume level";
+    exec = "pavucontrol-scaled";
+    icon = "org.pulseaudio.pavucontrol";
+    terminal = false;
+    categories = [ "AudioVideo" "Audio" "Mixer" "GTK" "Settings" ];
+    settings.Keywords = "pavucontrol;PulseAudio;Microphone;Volume;Mixer;Audio;Settings;";
   };
 
   # Default applications
@@ -505,15 +530,11 @@ in
   # Kanshi config
   xdg.configFile."kanshi/config".source = ./kanshi/config;
 
-  # Global color-scheme + accent for GTK apps & portals. Cursor theme + size
-  # set here AND in gtk-3.0/settings.ini (GTK3 in waybar needs both).
+  # Accent + legacy prefer-dark key that the `gtk` module does NOT write
+  # (module owns color-scheme/font/cursor/theme via dconf below).
   dconf.settings = {
     "org/gnome/desktop/interface" = {
-      color-scheme = "prefer-dark";
       accent-color = "amber";
-      font-name = "${theme.font.family} 18";
-      cursor-theme = theme.cursorTheme;
-      cursor-size = theme.display.cursor.seat;
       gtk-application-prefer-dark-theme = true;
     };
   };
@@ -528,6 +549,10 @@ in
   gtk = {
     enable = true;
     colorScheme = "dark";   # → gtk-application-prefer-dark-theme + prefer-dark
+    font = {
+      name = theme.font.family;
+      size = 18;
+    };
     theme = {
       name = theme.gtkTheme;
       package = pkgs.gruvbox-dark-gtk;
@@ -541,19 +566,18 @@ in
       package = recoloredCursors;
       size = theme.display.cursor.seat;
     };
-    # GTK4: stateVersion 26.05 keeps gtk4.theme null (libadwaita defaults),
-    # so the handmade gruvbox gtk-4.0 CSS below stays the gtk4 source.
+    # GTK4: stateVersion 26.05 keeps gtk4.theme null (libadwaita defaults).
   };
 
-  # GTK4 gruvbox theme for non-libadwaita apps (pavucontrol).
-  # CSS lives in machine/gtk4-theme.nix, generated from the palette.
+  # GTK4 gruvbox css for non-libadwaita GTK4 apps (pavucontrol 6.x): consumed
+  # via GTK_THEME=gruvbox-dark → ~/.local/share/themes/gruvbox-dark/gtk-4.0/.
+  # Don't remove — pavucontrol does not go through gtk3 settings/dconf at all.
   xdg.dataFile."themes/gruvbox-dark/gtk-4.0/gtk.css".text = gtk4css;
 
   # Belt-and-suspenders: the gtk module resolves the theme via the user
   # profile (XDG_DATA_DIRS). A ~/.themes copy additionally covers contexts
   # whose env may lack that path (some systemd user services) — GTK3 always
-  # checks ~/.themes first, keyed only on $HOME. GTK4 apps still use the
-  # handmade gtk-4.0/gtk.css above (the package ships no gtk4 theme).
+  # checks ~/.themes first, keyed only on $HOME.
   home.file.".themes/gruvbox-dark".source =
     "${pkgs.gruvbox-dark-gtk}/share/themes/gruvbox-dark";
 
