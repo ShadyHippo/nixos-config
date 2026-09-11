@@ -16,7 +16,19 @@
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = false;   # battery; toggle with rfkill or bluejay
+    # Force BlueZ to serve HID devices from userspace (via uhid) instead of
+    # feeding the kernel's HIDP stack. Required for the disable_ertm fix below
+    # to actually govern connection behaviour (writes /etc/bluetooth/input.conf).
+    input.General.UserspaceHID = true;
   };
+
+  # disable_ertm: the kernel L2CAP stack's ERTM mode is flaky with the Switch
+  # Pro Controller (and several cheap dongles) — the stored link is dropped
+  # seconds after connect, so the controller never reconnects reliably.
+  # Module param on `bluetooth` (CONFIG_BT=m), passed over the kernel cmdline
+  # so it's live from the first module load (no modprobe.d race). Equivalent
+  # to `echo 1 > /sys/module/bluetooth/parameters/disable_ertm` at runtime.
+  boot.kernelParams = [ "bluetooth.disable_ertm=1" ];
 
   # ---- Nintendo Switch controllers (Joy-Con / Pro) ---------------------------
   # hid_nintendo: kernel's native driver for Switch controllers.

@@ -220,7 +220,7 @@ in
       # Preview the directory when tab-completing cd / paths
       zstyle ':fzf-tab:complete:cd:*' fzf-preview \
         'ls -1 --color=always $realpath 2>/dev/null || echo $realpath'
-      zstyle ':fzf-tab:complete:cd:*' fzf-flags '--height=40% --layout=reverse --border'
+      zstyle ':fzf-tab:complete:cd:*' fzf-flags '--height=40%' '--layout=reverse' '--border'
 
       # Kill completion: preview the command behind the PID being completed
       zstyle ':fzf-tab:complete:kill:argument-*' fzf-preview \
@@ -242,22 +242,6 @@ in
       fi
 
       # ---- bare prompt: ~/path ❯ (hot-pink), red ❯ on error ----
-      zmodload zsh/datetime
-      autoload -Uz add-zsh-hook
-      _sp_dur=""
-      _sp_start=""
-      _sp_preexec() { _sp_start=$EPOCHREALTIME; }
-      _sp_precmd() {
-        if [[ -n "$_sp_start" ]]; then
-          local s=$(( EPOCHREALTIME - _sp_start ))
-          printf -v _sp_dur '%.2fs' $s
-          RPROMPT="%F{${pal.gray}}took $_sp_dur%f"
-        else
-          RPROMPT=""
-        fi
-      }
-      add-zsh-hook preexec _sp_preexec
-      add-zsh-hook precmd _sp_precmd
       PROMPT='%B%F{${pal.accent}}%~%f %(!.%F{#fb4934}#.%(?.%F{${pal.accent}}.%F{#fb4934})❯)%f%b '
     '';
   };
