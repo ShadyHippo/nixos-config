@@ -39,6 +39,32 @@
           };
         };
         modules = [
+          # gruvbox-dark-gtk 1.0.2 ships a broken gtk-3.0/gtk.css: a 62-byte
+          # stub importing from a gresource bundle (org.numixproject.gtk) that
+          # GTK3 never registers, so the theme silently falls back to Adwaita
+          # (white apps). #323833 documented the same saga for gruvbox-gtk.
+          # Fix: extract the real CSS (self-contained, no resource refs) from
+          # the shipped gresource and drop the bundle — a plain loadable theme.
+          {
+            nixpkgs.overlays = [
+              (final: prev: {
+                gruvbox-dark-gtk = prev.gruvbox-dark-gtk.overrideAttrs (old: {
+                  # Package defines a custom installPhase → stdenv's postInstall
+                  # hook never runs, so append the fix inside installPhase.
+                  installPhase = old.installPhase + ''
+                    theme=$out/share/themes/gruvbox-dark
+                    ${prev.glib.dev}/bin/gresource extract \
+                      "$theme/gtk-3.0/gtk.gresource" \
+                      /org/numixproject/gtk/dist/gtk.css \
+                      > "$theme/gtk-3.0/gtk.css"
+                    rm -f "$theme/gtk-3.0/gtk.gresource" \
+                      "$theme/gtk-3.0/gtk.gresource.xml"
+                    rm -rf "$theme/gtk-3.0/dist"
+                  '';
+                });
+              })
+            ];
+          }
           ./hardware-configuration.nix
           ./configuration.nix
           ./modules/base.nix

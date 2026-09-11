@@ -219,6 +219,9 @@ for_window [title="Qalculate!"] floating enable
 for_window [app_id="(?i)pavucontrol"] floating enable
 for_window [class="(?i)pavucontrol"] floating enable
 for_window [app_id="(?i)io.github.ebonjaeger.bluejay"] floating enable
+# EasyEffects (GTK3 audio effects, native Wayland): float it — it's a settings
+# panel, not a tiling app. Default size/position is fine.
+for_window [app_id="(?i)org.kde.easyeffects"] floating enable
 # Dolphin (KDE, native Wayland): its confirm/progress dialogs (Delete, Copying,
 # Moving, Extracting...) are xdg_toplevel windows just like the main window -
 # Wayland exposes no window role/type (window_role/window_type are XWayland-only

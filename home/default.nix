@@ -118,6 +118,11 @@ in
     "net.retrodeck.retrodeck"
   ];
 
+  # EasyEffects: system-wide audio effects (EQ, compression, limiter).
+  # Auto-starts with the pipewire session; dconf backing store is already
+  # enabled system-wide (modules/desktop.nix) so settings persist.
+  services.easyeffects.enable = true;
+
   # Cursor: bigger + a real theme (default is a tiny X cursor)
   home.sessionVariables = {
     XCURSOR_SIZE = toString theme.display.cursor.env;
@@ -513,22 +518,44 @@ in
     };
   };
 
-  # force: set-res.sh rewrites at runtime.
-  xdg.configFile."gtk-3.0/settings.ini" = {
-    force = true;
-    text = ''
-      [Settings]
-      gtk-theme-name=${theme.gtkTheme}
-      gtk-icon-theme-name=Adwaita
-      gtk-cursor-theme-name=${theme.cursorTheme}
-      gtk-cursor-theme-size=${toString theme.display.cursor.seat}
-      gtk-application-prefer-dark-theme=1
-    '';
+  # GTK theming via the home-manager `gtk` module — the documented way.
+  # It generates gtk-3.0/settings.ini AND mirrors the same keys into dconf
+  # (org.gnome.desktop.interface), so apps launched with a clean env (systemd
+  # user services, e.g. easyeffects) get the theme too; the theme package is
+  # also installed to the user profile (~/.nix-profile/share on XDG_DATA_DIRS).
+  # NOTE: set-res.sh still force-rewrites settings.ini at runtime (preset
+  # switches) — that behaviour is unchanged.
+  gtk = {
+    enable = true;
+    colorScheme = "dark";   # → gtk-application-prefer-dark-theme + prefer-dark
+    theme = {
+      name = theme.gtkTheme;
+      package = pkgs.gruvbox-dark-gtk;
+    };
+    iconTheme = {
+      name = "Adwaita";
+      package = pkgs.adwaita-icon-theme;
+    };
+    cursorTheme = {
+      name = theme.cursorTheme;
+      package = recoloredCursors;
+      size = theme.display.cursor.seat;
+    };
+    # GTK4: stateVersion 26.05 keeps gtk4.theme null (libadwaita defaults),
+    # so the handmade gruvbox gtk-4.0 CSS below stays the gtk4 source.
   };
 
   # GTK4 gruvbox theme for non-libadwaita apps (pavucontrol).
   # CSS lives in machine/gtk4-theme.nix, generated from the palette.
   xdg.dataFile."themes/gruvbox-dark/gtk-4.0/gtk.css".text = gtk4css;
+
+  # Belt-and-suspenders: the gtk module resolves the theme via the user
+  # profile (XDG_DATA_DIRS). A ~/.themes copy additionally covers contexts
+  # whose env may lack that path (some systemd user services) — GTK3 always
+  # checks ~/.themes first, keyed only on $HOME. GTK4 apps still use the
+  # handmade gtk-4.0/gtk.css above (the package ships no gtk4 theme).
+  home.file.".themes/gruvbox-dark".source =
+    "${pkgs.gruvbox-dark-gtk}/share/themes/gruvbox-dark";
 
   # KDE palette+font (Dolphin) + KColorScheme source for Kirigami apps
   # (bluejay). The Qt platform theme (kde) resolves the .colors SCHEME FILE
