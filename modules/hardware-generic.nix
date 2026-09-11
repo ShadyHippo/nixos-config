@@ -22,17 +22,6 @@
     input.General.UserspaceHID = true;
   };
 
-  # Keep the Intel Wireless-AC 9260 Bluetooth adapter (USB 8087:0025) out of
-  # USB autosuspend. Observed 2026-09-11: while the radio is runtime-suspended
-  # the Pro Controller's reconnect pages go unheard (host reads PSCAN/healthy,
-  # btmon sees nothing, only an adapter power cycle restores it). Test subject:
-  # "problue" reconnect wedge — see V2 docs. Remove the rule if pinning the
-  # device awake does not stop the wedge.
-  services.udev.extraRules = ''
-    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="8087", ATTR{idProduct}=="0025", \
-      TEST=="power/control", ATTR{power/control}="on"
-  '';
-
   # disable_ertm: the kernel L2CAP stack's ERTM mode is flaky with the Switch
   # Pro Controller (and several cheap dongles) — the stored link is dropped
   # seconds after connect, so the controller never reconnects reliably.
