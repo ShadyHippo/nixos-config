@@ -62,6 +62,10 @@ in
     (pkgs.bluejay.overrideAttrs (old: {
       buildInputs = (old.buildInputs or []) ++ [ pkgs.kdePackages.qqc2-desktop-style ];
     }))
+
+    # Bluetooth monitoring / debugging
+    bluetuith                     # TUI bluetooth manager (connect, send files, monitor)
+    bluez-tools                   # btmgmt, btinfo CLI tools for scripted BT control
   ];
 
   xdg.desktopEntries.batteryscope = {

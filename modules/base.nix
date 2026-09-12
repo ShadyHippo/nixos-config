@@ -66,6 +66,14 @@ in
     pciutils usbutils lshw        # hardware poking
     powertop                      # diagnostics only (power management config lives elsewhere)
     lm_sensors                    # `sensors` - temp/fan readings (btop + debugging)
+
+    # Network monitoring / debugging
+    net-tools                     # ifconfig, netstat, route, arp
+    nload                         # per-interface bandwidth graph
+    nethogs                       # per-process bandwidth usage
+    mtr                           # traceroute + ping combined
+    wavemon                       # wireless interface monitor (signal, packets, stats)
+    iperf3                        # network throughput testing
     stress-ng                     # CPU/RAM stress testing (undervolt validation)
     glmark2                       # GPU stress testing (use --backend=wayland)
     brightnessctl                 # screen backlight (bound to XF86 keys in sway)
