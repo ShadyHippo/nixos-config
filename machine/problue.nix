@@ -23,6 +23,15 @@
 # ─────────────────────────────────────────────────────────────────────────────
 { pkgs, ... }:
 
+let
+  # unwedge.sh (source of truth: home/sway/scripts/unwedge.sh) packaged as a
+  # system binary so the sway hotkey can elevate without a password prompt.
+  # Sudoers below must point at root-owned paths: a NOPASSWD rule for the
+  # ~/.config symlink would be refused (user-owned path/dir).
+  unwedge = pkgs.writeShellScriptBin "unwedge" (''
+    export PATH="${pkgs.lib.makeBinPath [ pkgs.bluez pkgs.coreutils pkgs.gawk pkgs.gnugrep ]}:$PATH"
+  '' + builtins.readFile ../home/sway/scripts/unwedge.sh);
+in
 {
   # ---- 1. Kernel patches ------------------------------------------------------
   boot.kernelPatches = [
@@ -42,4 +51,22 @@
   hardware.bluetooth.package = pkgs.bluez.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [ ../patches/problue-bluez-procon-5.86.patch ];
   });
+
+  # ---- 3. Wedge rescue: unwedge.sh (ProBlue) ----------------------------------
+  # Re-arms the 9260's page scan after the scan-enable register silently drops to
+  # 0x00 (silent "controller won't reconnect"; KEY_CONTEXT §3.7). Reads 0x0019,
+  # writes 0x001a 0x02, re-reads, then waits for a reconnect. Hotkey:
+  # $mod+BackSpace (home/sway/config). Safe to run when not wedged (no-op path).
+  environment.systemPackages = [ unwedge ];
+
+  # NOPASSWD scoped to this one script — the hotkey runs without a terminal to
+  # prompt on. Listed as both the system path and the store path so it works
+  # whether invoked via PATH or directly.
+  security.sudo.extraRules = [{
+    users = [ "hippo" ];
+    commands = [
+      { command = "${unwedge}/bin/unwedge"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/unwedge"; options = [ "NOPASSWD" ]; }
+    ];
+  }];
 }

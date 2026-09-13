@@ -139,6 +139,7 @@ bindsym $mod+v splitv
 bindsym $mod+f fullscreen toggle
 bindsym $mod+a focus parent
 bindsym $mod+b exec ~/.config/sway/scripts/bluejay-toggle.sh  # toggle bluetooth manager (bluejay; floats via rules below)
+bindsym $mod+BackSpace exec sudo -n /run/current-system/sw/bin/unwedge  # ProBlue: re-arm BT page scan (controller won't reconnect)
 
 bindsym $mod+s layout stacking
 bindsym $mod+w layout tabbed
