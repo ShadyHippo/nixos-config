@@ -1,6 +1,27 @@
-diff -ruN bluez-pristine/Makefile.plugins bluez-apply2/Makefile.plugins
---- bluez-pristine/Makefile.plugins	2026-02-08 16:26:40.000000000 -0500
-+++ bluez-apply2/Makefile.plugins	2026-09-11 11:17:28.264413675 -0400
+# ProBlue - BlueZ Pro Controller cable pairing (BlueZ 5.86)
+#
+# Adds a Nintendo Pro Controller path to the sixaxis input plugin. On USB
+# plug-in it runs the wired UART session over the controller hidraw, reads the
+# controller identity and its stored pairing record, reuses that record when it
+# is already paired to this host (read-then-decide) or else runs the wired
+# 3-step, then stores the link key and marks the device Paired+Bonded so it
+# reconnects over Bluetooth after unplugging. Full rationale: README.md.
+#
+# Apply: patch -p1, from a BlueZ source root.
+#
+# Copyright (C) 2026 Tim Van Dyke <tim.vandyke123@gmail.com>
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Signed-off-by: Tim Van Dyke <tim.vandyke123@gmail.com>
+#
+# Credits: new files profiles/input/procon.{c,h} carry GPL-2.0-or-later SPDX
+# headers and the copyright above; modified files keep their upstream BlueZ
+# headers. Protocol from dekuNukem Nintendo_Switch_Reverse_Engineering
+# (bluetooth_hid_subcommands_notes.md, spi_flash_notes.md, USB-HID-Notes.md) and
+# the nxbt "Example Pairing Session" capture (Brikwerk).
+
+diff -ruN a/Makefile.plugins b/Makefile.plugins
+--- a/Makefile.plugins	2026-09-14 10:56:49.506128073 -0400
++++ b/Makefile.plugins	2026-09-14 10:56:49.509913426 -0400
 @@ -93,7 +93,8 @@
  
  if SIXAXIS
@@ -11,9 +32,9 @@ diff -ruN bluez-pristine/Makefile.plugins bluez-apply2/Makefile.plugins
  builtin_ldadd += $(UDEV_LIBS)
  endif
  
-diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
---- bluez-pristine/plugins/sixaxis.c	2025-09-18 14:08:44.000000000 -0400
-+++ bluez-apply2/plugins/sixaxis.c	2026-09-12 22:02:57.637741049 -0400
+diff -ruN a/plugins/sixaxis.c b/plugins/sixaxis.c
+--- a/plugins/sixaxis.c	2026-09-14 10:56:49.517595428 -0400
++++ b/plugins/sixaxis.c	2026-09-14 10:56:49.521409216 -0400
 @@ -27,9 +27,12 @@
  #include <libudev.h>
  
@@ -27,7 +48,15 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  #include "src/adapter.h"
  #include "src/device.h"
  #include "src/agent.h"
-@@ -137,6 +140,8 @@
+@@ -47,6 +50,7 @@
+ 	int fd;
+ 	bdaddr_t bdaddr; /* device bdaddr */
+ 	CablePairingType type;
++	bool existing; /* device record pre-existed; never remove it */
+ };
+ 
+ struct authentication_destroy_closure {
+@@ -137,6 +141,8 @@
  		return sixaxis_get_device_bdaddr(fd, bdaddr);
  	else if (type == CABLE_PAIRING_DS4)
  		return ds4_get_device_bdaddr(fd, bdaddr);
@@ -36,7 +65,7 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  	return -1;
  }
  
-@@ -189,6 +194,9 @@
+@@ -189,6 +195,9 @@
  		return sixaxis_get_central_bdaddr(fd, bdaddr);
  	else if (type == CABLE_PAIRING_DS4)
  		return ds4_get_central_bdaddr(fd, bdaddr);
@@ -46,7 +75,7 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  	return -1;
  }
  
-@@ -237,6 +245,8 @@
+@@ -237,6 +246,8 @@
  		return sixaxis_set_central_bdaddr(fd, bdaddr);
  	else if (type == CABLE_PAIRING_DS4)
  		return ds4_set_central_bdaddr(fd, bdaddr);
@@ -55,7 +84,18 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  	return -1;
  }
  
-@@ -284,14 +294,38 @@
+@@ -271,7 +282,9 @@
+ 	char central_addr[18], adapter_addr[18], device_addr[18];
+ 	bdaddr_t central_bdaddr;
+ 	const bdaddr_t *adapter_bdaddr;
+-	bool remove_device = true;
++	/* Only remove a device created in this flow; a pre-existing record (a
++	 * known controller being re-paired) must survive a failed repair. */
++	bool remove_device = !closure->existing;
+ 
+ 	if (!is_auth_pending(closure))
+ 		return;
+@@ -284,14 +297,38 @@
  		goto out;
  	}
  
@@ -99,7 +139,7 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  	}
  
  	remove_device = false;
-@@ -300,6 +334,22 @@
+@@ -300,6 +337,22 @@
  	if (closure->type == CABLE_PAIRING_SIXAXIS) {
  		btd_device_set_record(closure->device, HID_UUID,
  						 SIXAXIS_HID_SDP_RECORD);
@@ -122,7 +162,7 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  	}
  
  	device_set_cable_pairing(closure->device, true);
-@@ -309,8 +359,8 @@
+@@ -309,8 +362,8 @@
  	ba2str(&closure->bdaddr, device_addr);
  	ba2str(&central_bdaddr, central_addr);
  	ba2str(adapter_bdaddr, adapter_addr);
@@ -133,9 +173,11 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  
  out:
  	g_hash_table_steal(pending_auths, closure->sysfs_path);
-@@ -334,11 +384,33 @@
+@@ -333,23 +386,55 @@
+ 	const bdaddr_t *adapter_bdaddr;
  	struct btd_device *device;
  	struct authentication_closure *closure;
++	bool existing;
  
 +	/* procon: start the wired UART session before any subcommand —
 +	 * hid-nintendo's passive probe never starts it. */
@@ -147,6 +189,8 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  	if (get_device_bdaddr(fd, &device_bdaddr, cp->type) < 0)
  		return false;
  
+-	/* This can happen if controller was plugged while already setup and
+-	 * connected eg. to charge up battery. */
 +	if (cp->type == CABLE_PAIRING_PROCON) {
 +		/* Re-arm on every plug-in, like the Switch. A failure here is
 +		 * not fatal: the controller is already paired, and the
@@ -160,18 +204,51 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
 +		btd_adapter_set_connectable(adapter, true);
 +	}
 +
- 	/* This can happen if controller was plugged while already setup and
--	 * connected eg. to charge up battery. */
-+	 * connected eg. to charge up battery. The Pro Controller is exempt
-+	 * unless it is connected right now: read-then-decide makes a re-dock a
-+	 * no-op (it just verified the key), so nothing to skip here. */
++	/*
++	 * A controller that is connected to us right now needs nothing: it is
++	 * already running on the stored key. Anything else is re-checked over
++	 * USB. That matters for the Pro Controller in particular: its flash has
++	 * a single pairing slot, so another host may have replaced our record
++	 * since the last dock. read-then-decide reuses the key when it is still
++	 * ours and runs the 3-step when it is not, so a trusted-but-idle Pro
++	 * Controller must not be skipped (Sony controllers keep the old
++	 * trusted-skip behaviour).
++	 */
  	device = btd_adapter_find_device(adapter, &device_bdaddr,
  							BDADDR_BREDR);
  	if (device && btd_device_has_uuid(device, HID_UUID) &&
-@@ -363,6 +435,14 @@
- 	btd_device_set_pnpid(device, cp->source, cp->vid, cp->pid, cp->version);
- 	btd_device_set_temporary(device, true);
+ 			(btd_device_is_connected(device) ||
+-			 btd_device_is_trusted(device))) {
++			 (cp->type != CABLE_PAIRING_PROCON &&
++			  btd_device_is_trusted(device)))) {
+ 		char device_addr[18];
+ 		ba2str(&device_bdaddr, device_addr);
+ 		DBG("device %s already known, skipping", device_addr);
+ 		return false;
+ 	}
  
++	existing = device != NULL;
++
+ 	device = btd_adapter_get_device(adapter, &device_bdaddr, BDADDR_BREDR);
+ 
+ 	if (!device) {
+@@ -357,15 +442,29 @@
+ 		return false;
+ 	}
+ 
+-	info("sixaxis: setting up new device");
++	info("sixaxis: %s device",
++			existing ? "re-checking known" : "setting up new");
+ 
+ 	btd_device_device_set_name(device, cp->name);
+ 	btd_device_set_pnpid(device, cp->source, cp->vid, cp->pid, cp->version);
+-	btd_device_set_temporary(device, true);
++
++	/* A record we already have stays permanent: if the repair fails, the
++	 * user's pairing must survive (see remove_device in agent_auth_cb). */
++	if (!existing)
++		btd_device_set_temporary(device, true);
++
 +	/*
 +	 * Physical access to the cable is the authorization, so trust the
 +	 * device before asking for cable authorization: the request is then
@@ -179,11 +256,33 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
 +	 * connection fails as "without agent".
 +	 */
 +	btd_device_set_trusted(device, true);
-+
+ 
  	closure = g_new0(struct authentication_closure, 1);
  	if (!closure) {
- 		btd_adapter_remove_device(adapter, device);
-@@ -413,6 +493,8 @@
+-		btd_adapter_remove_device(adapter, device);
++		if (!existing)
++			btd_adapter_remove_device(adapter, device);
+ 		return false;
+ 	}
+ 	closure->adapter = adapter;
+@@ -374,6 +473,7 @@
+ 	closure->fd = fd;
+ 	bacpy(&closure->bdaddr, &device_bdaddr);
+ 	closure->type = cp->type;
++	closure->existing = existing;
+ 	adapter_bdaddr = btd_adapter_get_address(adapter);
+ 	closure->auth_id = btd_request_authorization_cable_configured(
+ 					adapter_bdaddr, &device_bdaddr,
+@@ -381,7 +481,7 @@
+ 
+ 	if (closure->auth_id == 0) {
+ 		error("sixaxis: could not request cable authorization");
+-		auth_closure_destroy(closure, true);
++		auth_closure_destroy(closure, !existing);
+ 		return false;
+ 	}
+ 
+@@ -413,6 +513,8 @@
  	hid_name = udev_device_get_property_value(hid_parent, "HID_NAME");
  
  	cp = get_pairing(vid, pid, hid_name);
@@ -192,7 +291,7 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  	*sysfs_path = g_strdup(udev_device_get_syspath(udevice));
  
  	return cp;
-@@ -432,7 +514,8 @@
+@@ -432,7 +534,8 @@
  
  	cp = get_pairing_type_for_device(udevice, &bus, &sysfs_path);
  	if (!cp || (cp->type != CABLE_PAIRING_SIXAXIS &&
@@ -202,10 +301,20 @@ diff -ruN bluez-pristine/plugins/sixaxis.c bluez-apply2/plugins/sixaxis.c
  		g_free(sysfs_path);
  		return;
  	}
-diff -ruN bluez-pristine/profiles/input/procon.c bluez-apply2/profiles/input/procon.c
---- bluez-pristine/profiles/input/procon.c	1969-12-31 19:00:00.000000000 -0500
-+++ bluez-apply2/profiles/input/procon.c	2026-09-12 23:25:59.174419451 -0400
-@@ -0,0 +1,370 @@
+@@ -472,7 +575,8 @@
+ 		return;
+ 
+ 	g_hash_table_steal(pending_auths, sysfs_path);
+-	auth_closure_destroy(closure, true);
++	/* Unplug during the handshake: a pre-existing pairing survives. */
++	auth_closure_destroy(closure, !closure->existing);
+ }
+ 
+ static gboolean monitor_watch(GIOChannel *source, GIOCondition condition,
+diff -ruN a/profiles/input/procon.c b/profiles/input/procon.c
+--- a/profiles/input/procon.c	1969-12-31 19:00:00.000000000 -0500
++++ b/profiles/input/procon.c	2026-09-14 10:56:49.529138455 -0400
+@@ -0,0 +1,373 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + *  BlueZ - Bluetooth protocol stack for Linux
@@ -222,6 +331,9 @@ diff -ruN bluez-pristine/profiles/input/procon.c bluez-apply2/profiles/input/pro
 + *  for the duration of one command round-trip. The controller normally answers
 + *  within milliseconds; the timeout is only a safety net against a dead or
 + *  unresponsive controller.
++ *
++ *  Protocol sources: dekuNukem's Nintendo_Switch_Reverse_Engineering notes and
++ *  the nxbt "Example Pairing Session" capture (Brikwerk).
 + */
 +
 +#ifdef HAVE_CONFIG_H
@@ -577,10 +689,10 @@ diff -ruN bluez-pristine/profiles/input/procon.c bluez-apply2/profiles/input/pro
 +	return 0;
 +}
 \ No newline at end of file
-diff -ruN bluez-pristine/profiles/input/procon.h bluez-apply2/profiles/input/procon.h
---- bluez-pristine/profiles/input/procon.h	1969-12-31 19:00:00.000000000 -0500
-+++ bluez-apply2/profiles/input/procon.h	2026-09-11 11:17:28.264806071 -0400
-@@ -0,0 +1,117 @@
+diff -ruN a/profiles/input/procon.h b/profiles/input/procon.h
+--- a/profiles/input/procon.h	1969-12-31 19:00:00.000000000 -0500
++++ b/profiles/input/procon.h	2026-09-14 10:56:49.536600990 -0400
+@@ -0,0 +1,124 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
 + *  BlueZ - Bluetooth protocol stack for Linux
@@ -610,6 +722,11 @@ diff -ruN bluez-pristine/profiles/input/procon.h bluez-apply2/profiles/input/pro
 + *  The shared cable-pairing infrastructure (CablePairingType, struct
 + *  cable_pairing, the PlayStation device table) lives in sixaxis.h; everything
 + *  Nintendo-specific lives here.
++ *
++ *  Protocol sources: dekuNukem's Nintendo_Switch_Reverse_Engineering
++ *  (bluetooth_hid_subcommands_notes.md, spi_flash_notes.md, USB-HID-Notes.md),
++ *  the nxbt "Example Pairing Session" capture (Brikwerk), and the upstream
++ *  hid-nintendo driver for the wired frame layout.
 + */
 +
 +#ifndef _PROCON_H_
@@ -682,8 +799,10 @@ diff -ruN bluez-pristine/profiles/input/procon.h bluez-apply2/profiles/input/pro
 +							const char *name);
 +
 +/* The controller's HID service record, captured verbatim from bluetoothd's
-+ * SDP cache during a genuine pairing (V1 docs/golden/procon_sdp_cache). P7:
-+ * try a real SDP browse on 5.86 before relying on this. */
++ * SDP cache during a genuine pairing of a retail Pro Controller. It is a
++ * property of the controller's firmware and identical across units (no
++ * machine- or key-specific data). P7: verify with a real SDP browse on 5.86
++ * before relying on it. */
 +#define PROCON_HID_SDP_RECORD "36017D0900000A000100000900013503191124090004"\
 +	"350D350619010009001135031900110900053503191002090006350909656E09006A09"\
 +	"01000900093508350619112409010109000D350F350D35061901000900133503190011"\
@@ -699,9 +818,9 @@ diff -ruN bluez-pristine/profiles/input/procon.h bluez-apply2/profiles/input/pro
 +
 +#endif /* _PROCON_H_ */
 \ No newline at end of file
-diff -ruN bluez-pristine/profiles/input/server.c bluez-apply2/profiles/input/server.c
---- bluez-pristine/profiles/input/server.c	2025-09-18 14:08:44.000000000 -0400
-+++ bluez-apply2/profiles/input/server.c	2026-09-11 11:17:28.264926408 -0400
+diff -ruN a/profiles/input/server.c b/profiles/input/server.c
+--- a/profiles/input/server.c	2026-09-14 10:56:49.544337408 -0400
++++ b/profiles/input/server.c	2026-09-14 10:56:49.548106308 -0400
 @@ -31,6 +31,7 @@
  #include "src/profile.h"
  
@@ -761,9 +880,9 @@ diff -ruN bluez-pristine/profiles/input/server.c bluez-apply2/profiles/input/ser
  		error("Refusing connection from %s: unknown device", addr);
  		goto drop;
  	}
-diff -ruN bluez-pristine/profiles/input/sixaxis.h bluez-apply2/profiles/input/sixaxis.h
---- bluez-pristine/profiles/input/sixaxis.h	2025-09-18 14:08:44.000000000 -0400
-+++ bluez-apply2/profiles/input/sixaxis.h	2026-09-11 11:17:28.265032695 -0400
+diff -ruN a/profiles/input/sixaxis.h b/profiles/input/sixaxis.h
+--- a/profiles/input/sixaxis.h	2026-09-14 10:56:49.555758751 -0400
++++ b/profiles/input/sixaxis.h	2026-09-14 10:56:49.559512315 -0400
 @@ -13,10 +13,18 @@
  #ifndef _SIXAXIS_H_
  #define _SIXAXIS_H_
@@ -783,22 +902,23 @@ diff -ruN bluez-pristine/profiles/input/sixaxis.h bluez-apply2/profiles/input/si
  } CablePairingType;
  
  struct cable_pairing {
-diff -ruN bluez-pristine/src/adapter.c bluez-apply2/src/adapter.c
---- bluez-pristine/src/adapter.c	2026-02-08 16:26:40.000000000 -0500
-+++ bluez-apply2/src/adapter.c	2026-09-11 11:17:28.265224641 -0400
-@@ -5889,6 +5889,28 @@
+diff -ruN a/src/adapter.c b/src/adapter.c
+--- a/src/adapter.c	2026-09-14 10:56:49.567090755 -0400
++++ b/src/adapter.c	2026-09-14 10:56:49.570953639 -0400
+@@ -5889,6 +5889,29 @@
  
  	DBG("adapter %s has been enabled", adapter->path);
  
 +	/*
-+	 * The kernel clears the accept list on power-off, and nothing
-+	 * re-populates it for devices that were already non-temporary
-+	 * (the accept-list add only fires at the temporary→non-temporary
-+	 * bonding transition, device.c:6880). Re-add bonded BR/EDR devices
-+	 * on every power-on so a paired controller's wake-page is heard —
-+	 * page → kernel accepts (accept list) → link key → connect — with no
-+	 * GUI open. Harmless if the entry is already present (the kernel
-+	 * rejects the duplicate; the error log is cosmetic).
++	 * Hardening: the kernel clears the accept list on power-off and only
++	 * re-adds a device at the temporary→non-temporary bonding transition
++	 * (device.c:6880). Re-add bonded BR/EDR devices on every power-on so
++	 * the `disconnected_accept_list_entries` page-scan path stays
++	 * populated. This is NOT the reconnect-wedge fix (see
++	 * docs/hardware/intel-9260-reconnect-wedge.md); it only keeps the
++	 * accept list consistent with the bonded device set. Harmless if the
++	 * entry is already present (the kernel rejects the duplicate; the
++	 * error log is cosmetic).
 +	 */
 +	if (btd_has_kernel_features(KERNEL_CONN_CONTROL)) {
 +		GSList *l;
@@ -815,7 +935,7 @@ diff -ruN bluez-pristine/src/adapter.c bluez-apply2/src/adapter.c
  	trigger_passive_scanning(adapter);
  }
  
-@@ -8035,6 +8057,21 @@
+@@ -8035,6 +8058,21 @@
  	return 0;
  }
  
@@ -837,7 +957,7 @@ diff -ruN bluez-pristine/src/adapter.c bluez-apply2/src/adapter.c
  int btd_adapter_read_clock(struct btd_adapter *adapter, const bdaddr_t *bdaddr,
  				int which, int timeout, uint32_t *clock,
  				uint16_t *accuracy)
-@@ -8747,6 +8784,84 @@
+@@ -8747,6 +8785,84 @@
  	g_key_file_free(key_file);
  }
  
@@ -922,9 +1042,9 @@ diff -ruN bluez-pristine/src/adapter.c bluez-apply2/src/adapter.c
  static void new_link_key_callback(uint16_t index, uint16_t length,
  					const void *param, void *user_data)
  {
-diff -ruN bluez-pristine/src/adapter.h bluez-apply2/src/adapter.h
---- bluez-pristine/src/adapter.h	2026-02-08 16:26:40.000000000 -0500
-+++ bluez-apply2/src/adapter.h	2026-09-11 11:17:28.266030813 -0400
+diff -ruN a/src/adapter.h b/src/adapter.h
+--- a/src/adapter.h	2026-09-14 10:56:49.578584014 -0400
++++ b/src/adapter.h	2026-09-14 10:56:49.582277050 -0400
 @@ -78,6 +78,9 @@
  const char *btd_adapter_get_name(struct btd_adapter *adapter);
  void btd_adapter_remove_device(struct btd_adapter *adapter,
