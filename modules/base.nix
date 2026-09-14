@@ -78,7 +78,6 @@ in
     glmark2                       # GPU stress testing (use --backend=wayland)
     brightnessctl                 # screen backlight (bound to XF86 keys in sway)
     wl-clipboard                  # wayland copy/paste
-    joycond                       # Joy-Con pair daemon (combines L+R into one pad)
     playerctl                     # media keys
     libnotify                     # notify-send
     glib.bin                      # gsettings — set-res.sh sets font-name/cursor-size live

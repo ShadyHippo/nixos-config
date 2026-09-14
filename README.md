@@ -16,7 +16,7 @@ disabled).
 - **GTK/Qt theming** — kvantum Qt + gruvbox GTK, recolored **hot-pink cursor**
   shared by session and greeter, regreet login
 - **Apps** — Ghostty, Neovim, qalculate, Dolphin (NAS/SMB), Zen browser,
-  pavucontrol/Bluejay popups, Steam + Proton GE, **joycond**
+  pavucontrol/Bluejay popups, Steam + Proton GE
   (combined Joy-Cons), fcitx5 pinyin IME (see `machine/fcitx5.nix`), VS Code
   (see `machine/vscode.nix`)
 - **Emulation** — **RetroDECK flatpak** (`net.retrodeck.retrodeck`) manages all
