@@ -23,6 +23,12 @@ disabled).
   emulators (Dolphin, RetroArch, PCSX2, etc.) and their configs. ROMs, BIOS,
   saves, and texture packs live in `~/retrodeck/`. RetroDECK has a built-in
   Backup tool (Configurator → Data Management Tools) for portability.
+- **Switch Pro Controller** — cable pairing via BlueZ (`machine/problue.nix` +
+  two patches in `patches/`): plug in to pair, unplug, use over Bluetooth. Two
+  at once, no input lag. The cable supports no wired input mode.
+- **Intel 9260 page-scan wedge** — this radio intermittently stops listening for
+  incoming Bluetooth. `machine/wedge.nix` detects and re-arms it: a manual
+  hotkey plus a 10 s timer, with an episode log.
 - **Hardware** — keyd caps→escape, thermald + undervolt, Intel Wi-Fi/BT
   firmware, `hid_nintendo` driver, iGPU-only rendering (1050 Ti disabled)
 
@@ -75,6 +81,8 @@ entirely — each file below is self-contained.
 | **`machine/vscode.nix`** | VS Code: extensions, user settings, keybindings, icon fix | **Delete or edit** to your taste (remove its flake.nix import). The package installs via home-manager's `programs.vscode`, so removal is complete. |
 | **`machine/resolution.nix`** + **`machine/set-res.sh`** | `$mod+F10/F11/F12` resolution presets (720p/1080p/4K) for the Sharp 4K panel — preset math + sed-generators + the script template | **Delete both** unless you have a panel with a fixed scaler like this one (remove the import in `home/default.nix`). If you keep it: values derive from `theme.nix`, nothing else to edit. |
 | **`machine/gtk4-theme.nix`** | GTK4 gruvbox CSS for non-libadwaita apps (pavucontrol), generated from the palette | **Keep** — it only uses palette values; if you change the palette in `theme.nix` it follows automatically. If you must remove it, delete the import in `home/default.nix` and the `xdg.dataFile` entry that uses it. |
+| **`machine/problue.nix`** | Switch Pro Controller cable pairing: wires in the two patches from `patches/` | **Keep** if you use Switch Pro Controllers; otherwise delete **both** `patches/problue-*` and its `flake.nix` import. See "Bluetooth: ProBlue and the 9260 wedge". |
+| **`machine/wedge.nix`** (+ `machine/unwedge.sh`, `machine/wedge-watchdog.sh`) | Intel 9260 page-scan repair: a `$mod+BackSpace` manual rescue and a 10 s watchdog that detects and re-arms automatically, logging episodes to `/var/log/wedge-watchdog.log` | **Delete** on machines without this radio (remove the `flake.nix` import). See "Bluetooth: ProBlue and the 9260 wedge". |
 
 Sway, Waybar, Mako, Ghostty and the per-app GTK/Qt env all read from
 `machine/theme.nix` — change a number, rebuild, done.
@@ -86,7 +94,7 @@ Per-monitor placement is NOT in `theme.nix`: that's
 > `machine/` is the ONLY directory you need to reason about to port it.
 > Everything machine-specific + optional lives there. Two import sites matter:
 > **flake.nix** imports `hardware.nix`, `printing.nix`, `fcitx5.nix`,
-> `vscode.nix` (remove the line to drop the feature); **home/default.nix**
+> `vscode.nix`, `problue.nix`, `wedge.nix` (remove the line to drop the feature); **home/default.nix**
 > imports `theme.nix`, `resolution.nix`, and `gtk4-theme.nix` (and reads
 > `identity.nix`). Treat each file as an independent, removable unit — nothing
 > outside `machine/` is machine-tuned. Beware of `machine/resolution.nix`: it
@@ -112,6 +120,77 @@ Per-monitor placement is NOT in `theme.nix`: that's
    `machine/vscode.nix` if you don't want them.
 7. Build: `sudo nixos-rebuild switch --flake .#<hostname from machine/identity.nix>` \
    (for this machine: `.#hippo-xps`)
+
+## Bluetooth: ProBlue (Switch Pro Controller) and the 9260 wedge
+
+Two independent things, each in its own file. Read both file headers before
+editing — they carry the history and the traps.
+
+### ProBlue — Switch Pro Controller cable pairing
+
+`machine/problue.nix` applies two patches from `patches/` so a Pro Controller
+pairs over its USB-C cable like it does on a Switch, then works wirelessly
+afterwards:
+
+| Patch | Applied to |
+|---|---|
+| `problue-hid-nintendo-passive-6.18.46.patch` | kernel (`boot.kernelPatches`) — `hid-nintendo` goes passive on USB so bluetoothd owns the controller's `hidraw` |
+| `problue-bluez-procon-5.86.patch` | BlueZ 5.86 (`hardware.bluetooth.package` override) — implements the wired pairing protocol |
+
+These are not local hacks: the upstream ProBlue repo is at `~/Programming/ProBlue`,
+and `patches/` here must stay byte-identical to its `src/patches/` (where `src/`
+is the source of truth and the patches are generated — never hand-edit a patch,
+regenerate with `tools/make-patches.zsh`).
+
+That repo's README documents the protocol, build traps, and troubleshooting;
+its `0x80 01` first-query rule is why docking a controller that is already
+connected does not drop its link. Verified end to end on two retail Pro
+Controllers, including two in use at once.
+
+### Do not re-add these — they hard-freeze this laptop
+
+Tried for the 9260 wedge and **reverted**: a btusb remote-wake v2 kernel patch
+plus `btusb.enable_autosuspend=0` plus `iwlwifi.bt_coex_active=0`. Together they
+hard-froze the machine ~3 s into boot during udev coldplug — black screen,
+journal stops, no lockup message — reproducibly, twice. Suspect: patched btusb
+calling `usb_acpi_power_manageable()` into this Dell's broken `XHC.RHUB` ACPI
+namespace (96 `AE_ALREADY_EXISTS` on every boot, healthy or not). If you
+bisect again, add ONE variable at a time and expect a frozen boot; the deleted
+patch is in git history.
+
+### The 9260 wedge itself
+
+The radio firmware intermittently drops its **Scan_Enable** register to `0x00`
+(No Scans) while the kernel still believes page scan is on, so nothing re-writes
+it. The host then stops answering pages and a paired controller that is paging
+can never reconnect — pressing its buttons does nothing. Firmware is already
+current, so this is a permanent host-side workaround, not a fixable feature.
+
+Two independent mechanisms:
+
+- `$mod+BackSpace` → `unwedge` (manual rescue, unlocked by a scoped sudoers
+  rule).
+- `wedge-watchdog.timer` → every 10 s, reads the register and re-arms it if it
+  dropped while paired devices exist. Runs as root (no sudoers needed) and logs
+  one line per episode to journald and `/var/log/wedge-watchdog.log`.
+
+**When there is no wedge the watchdog logs nothing** — an empty log is healthy.
+`systemctl list-timers wedge-watchdog.timer` proves it is alive. To exercise the
+repair path on purpose: `sudo hcitool cmd 0x03 0x001a 0x00`, then read the log
+within ~10 s. Diagnosis and further notes live in the ProBlue repo's README
+(troubleshooting section) and in ProBlue's git history.
+
+### Deploying bluetooth changes — the gotchas
+
+- `nixos-rebuild switch` **does not restart `bluetooth.service`**. After any
+  bluetoothd change: `sudo systemctl restart bluetooth`.
+- `powerOnBoot = false` is deliberate (battery), with a consequence worth
+  knowing: a restart leaves the adapter **off**. Power it back up with bluejay
+  (`$mod+b`) or rfkill.
+- A `boot.kernelPatches` change rebuilds the **entire kernel** (hours); a BlueZ
+  patch rebuilds in minutes. The new kernel only takes effect after a **reboot**.
+- Flake visibility: Nix only sees **git-tracked** files. `git add` any new file
+  before building, or evaluation fails with `Path … is not tracked by Git`.
 
 ## Keybindings (`$mod` = Super/Windows key)
 
@@ -145,8 +224,8 @@ font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
 | `$mod+F1` | searchable keybind overview (`keys.sh` → fuzzel `--dmenu`) |
 | `$mod+n` | notification history (mako buffer via fuzzel viewer) |
 | `$mod+o` | wlsunset nightlight toggle (warm orange ~4000K, no timer) |
-| `$mod+Shift+Return` | new Zen browser window |
 | `$mod+b` | Bluejay bluetooth manager toggle (floating popup; status in waybar) |
+| `$mod+BackSpace` | re-arm the 9260's Bluetooth page scan (unwedge; also auto-fixed every 10 s) |
 
 ### IME (works in every app)
 
@@ -195,6 +274,11 @@ machine/                # ← EVERYTHING per-device / per-user (see table above)
   resolution.nix        # $mod+F10/11/12 presets (generates set-res.sh)
   gtk4-theme.nix        # GTK4 CSS, generated from theme.nix palette
   set-res.sh            # template read by resolution.nix
+  problue.nix           # Switch Pro Controller cable pairing (2 patches)
+  wedge.nix             # Intel 9260 page-scan wedge: hotkey watchdog
+  unwedge.sh            #   manual rescue script
+  wedge-watchdog.sh     #   timer script (10 s detect-and-re-arm)
+patches/                # the .patch files the modules above apply
 modules/                # generic, reusable on any machine
   base.nix              # boot, firmware blacklist, locale, users, system packages
   desktop.nix           # sway/regreet/GTK+Qt theming plumbing, fonts, portals
@@ -203,4 +287,7 @@ modules/                # generic, reusable on any machine
 home/                   # per-user (session) config
   default.nix           # home-manager hub: packages, shell, sway, waybar, theming
   sway/ waybar/ fuzzel/ kanshi/ swayosd/ cursor/ kvantum/ color-schemes/
+images/                 # README screenshot + wallpapers (wired via home/default.nix)
+SA2 Modding/            # personal game-modding scripts (zsh aliases: sa2-mods, sa2-setup)
+scripts/                # manual undervolt / stress tools (not wired into the system)
 ```

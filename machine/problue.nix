@@ -1,17 +1,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # PROBLUE — Switch Pro Controller wired cable pairing (machine-specific).
 #
-# Port of V1's cable-pairing. Adds, for THIS machine:
+# Adds, for THIS machine:
 #   1. kernel `hid_nintendo` passive over USB (bluetoothd owns the hidraw)
 #   2. BlueZ 5.86 with the procon plugin (wired pairing / link-key storage)
-#
-# (Dropped 2026-09-12, boot-freeze bisection: the Intel 9260 experiments —
-# btusb-remote-wake v2 kernel patch + btusb.enable_autosuspend=0 /
-# iwlwifi.bt_coex_active=0 params — hard-freeze this laptop ~3s into boot
-# during udev coldplug (black screen, journal stops, NMI watchdog silent).
-# Suspect: patched btusb calling usb_acpi_power_manageable() into the broken
-# XHC.RHUB ACPI namespace (the 96 AE_ALREADY_EXISTS wall) and/or the coex
-# param. Re-add ONE variable at a time to bisect after ProBlue boots.
 #
 # Patches live in ../patches/ (tracked in git) and target kernel 6.18.46 +
 # BlueZ 5.86 — the nixos-26.05 pin defaults (verified: `nix eval` → 6.18.46 /
@@ -22,20 +14,10 @@
 # Switch Pro Controller wiring.
 # ─────────────────────────────────────────────────────────────────────────────
 { pkgs, ... }:
-
-let
-  # unwedge.sh (source of truth: home/sway/scripts/unwedge.sh) packaged as a
-  # system binary so the sway hotkey can elevate without a password prompt.
-  # Sudoers below must point at root-owned paths: a NOPASSWD rule for the
-  # ~/.config symlink would be refused (user-owned path/dir).
-  unwedge = pkgs.writeShellScriptBin "unwedge" (''
-    export PATH="${pkgs.lib.makeBinPath [ pkgs.bluez pkgs.coreutils pkgs.gawk pkgs.gnugrep ]}:$PATH"
-  '' + builtins.readFile ../home/sway/scripts/unwedge.sh);
-in
 {
   # ---- 1. Kernel patches ------------------------------------------------------
   boot.kernelPatches = [
-    # ProBlue stage 3: hid-nintendo is passive on USB so bluetoothd's procon
+    # ProBlue: hid-nintendo is passive on USB so bluetoothd's procon
     # plugin is the only writer on the controller's hidraw. BT path is stock.
     {
       name = "problue-hid-nintendo-passive";
@@ -44,29 +26,11 @@ in
   ];
 
   # ---- 2. BlueZ: procon cable-pairing plugin ----------------------------------
-  # Stock BlueZ 5.86 + the stage-5 patch (profiles/input/procon.{c,h}, sixaxis
-  # wiring, key storage). Appends to the upstream patch list rather than
+  # Stock BlueZ 5.86 + the procon cable-pairing patch (profiles/input/procon.{c,h},
+  # sixaxis wiring, key storage). Appends to the upstream patch list rather than
   # replacing it. UserspaceHID + powerOnBoot are already set in
   # modules/hardware-generic.nix and are not duplicated here.
   hardware.bluetooth.package = pkgs.bluez.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [ ../patches/problue-bluez-procon-5.86.patch ];
   });
-
-  # ---- 3. Wedge rescue: unwedge.sh (ProBlue) ----------------------------------
-  # Re-arms the 9260's page scan after the scan-enable register silently drops to
-  # 0x00 (silent "controller won't reconnect"; KEY_CONTEXT §3.7). Reads 0x0019,
-  # writes 0x001a 0x02, re-reads, then waits for a reconnect. Hotkey:
-  # $mod+BackSpace (home/sway/config). Safe to run when not wedged (no-op path).
-  environment.systemPackages = [ unwedge ];
-
-  # NOPASSWD scoped to this one script — the hotkey runs without a terminal to
-  # prompt on. Listed as both the system path and the store path so it works
-  # whether invoked via PATH or directly.
-  security.sudo.extraRules = [{
-    users = [ "hippo" ];
-    commands = [
-      { command = "${unwedge}/bin/unwedge"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/unwedge"; options = [ "NOPASSWD" ]; }
-    ];
-  }];
 }

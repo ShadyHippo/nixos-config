@@ -8,8 +8,8 @@
 #   3. read   again                       -> 0x02
 # Then press the controller button until it reconnects.
 #
-# For a passwordless hotkey: add a sudoers rule covering hcitool
-# (e.g.  %wheel ALL=(root) NOPASSWD: /run/current-system/sw/bin/hcitool).
+# Installed as `unwedge` by machine/wedge.nix with a scoped NOPASSWD sudoers
+# rule, so the $mod+BackSpace hotkey can run it without a password prompt.
 #
 # Usage:  sudo ./unwedge.sh [BD_ADDR]   (self-elevates if run without sudo)
 # Default BD_ADDR: 20:0B:CF:34:F1:BD

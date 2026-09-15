@@ -79,6 +79,7 @@
           ./machine/fcitx5.nix
           ./machine/vscode.nix
           ./machine/problue.nix
+          ./machine/wedge.nix
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
