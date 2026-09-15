@@ -82,7 +82,7 @@ entirely — each file below is self-contained.
 | **`machine/resolution.nix`** + **`machine/set-res.sh`** | `$mod+F10/F11/F12` resolution presets (720p/1080p/4K) for the Sharp 4K panel — preset math + sed-generators + the script template | **Delete both** unless you have a panel with a fixed scaler like this one (remove the import in `home/default.nix`). If you keep it: values derive from `theme.nix`, nothing else to edit. |
 | **`machine/gtk4-theme.nix`** | GTK4 gruvbox CSS for non-libadwaita apps (pavucontrol), generated from the palette | **Keep** — it only uses palette values; if you change the palette in `theme.nix` it follows automatically. If you must remove it, delete the import in `home/default.nix` and the `xdg.dataFile` entry that uses it. |
 | **`machine/problue.nix`** | Switch Pro Controller cable pairing: wires in the two patches from `patches/` | **Keep** if you use Switch Pro Controllers; otherwise delete **both** `patches/problue-*` and its `flake.nix` import. See "Bluetooth: ProBlue and the 9260 wedge". |
-| **`machine/wedge.nix`** (+ `machine/unwedge.sh`, `machine/wedge-watchdog.sh`) | Intel 9260 page-scan repair: a `$mod+BackSpace` manual rescue and a 10 s watchdog that detects and re-arms automatically, logging episodes to `/var/log/wedge-watchdog.log` | **Delete** on machines without this radio (remove the `flake.nix` import). See "Bluetooth: ProBlue and the 9260 wedge". |
+| **`machine/wedge.nix`** (+ `machine/unwedge.sh`) | Intel 9260 wedge rescue: a `$mod+BackSpace` rfkill power cycle of the radio (see "Bluetooth: ProBlue and the 9260 wedge") | **Delete** on machines without this radio (remove the `flake.nix` import). |
 
 Sway, Waybar, Mako, Ghostty and the per-app GTK/Qt env all read from
 `machine/theme.nix` — change a number, rebuild, done.
@@ -169,16 +169,10 @@ current, so this is a permanent host-side workaround, not a fixable feature.
 Two independent mechanisms:
 
 - `$mod+BackSpace` → `unwedge` (manual rescue, unlocked by a scoped sudoers
-  rule).
-- `wedge-watchdog.timer` → every 10 s, reads the register and re-arms it if it
-  dropped while paired devices exist. Runs as root (no sudoers needed) and logs
-  one line per episode to journald and `/var/log/wedge-watchdog.log`.
-
-**When there is no wedge the watchdog logs nothing** — an empty log is healthy.
-`systemctl list-timers wedge-watchdog.timer` proves it is alive. To exercise the
-repair path on purpose: `sudo hcitool cmd 0x03 0x001a 0x00`, then read the log
-within ~10 s. Diagnosis and further notes live in the ProBlue repo's README
-(troubleshooting section) and in ProBlue's git history.
+  rule): a full rfkill off→on power cycle of the radio — the same thing
+  Bluejay's power toggle does — then a 30 s connect-watch via `bluetoothctl`.
+  (A plain `hcitool cmd 0x03 0x001a 0x02` write-back was NOT consistent — the
+  firmware kept dropping the re-armed register.)
 
 ### Deploying bluetooth changes — the gotchas
 
@@ -225,7 +219,7 @@ font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
 | `$mod+n` | notification history (mako buffer via fuzzel viewer) |
 | `$mod+o` | wlsunset nightlight toggle (warm orange ~4000K, no timer) |
 | `$mod+b` | Bluejay bluetooth manager toggle (floating popup; status in waybar) |
-| `$mod+BackSpace` | re-arm the 9260's Bluetooth page scan (unwedge; also auto-fixed every 10 s) |
+| `$mod+BackSpace` | fix the 9260 Bluetooth wedge (rfkill cycle; was also auto-fixed every 10 s — that watchdog was removed) |
 
 ### IME (works in every app)
 
@@ -275,9 +269,9 @@ machine/                # ← EVERYTHING per-device / per-user (see table above)
   gtk4-theme.nix        # GTK4 CSS, generated from theme.nix palette
   set-res.sh            # template read by resolution.nix
   problue.nix           # Switch Pro Controller cable pairing (2 patches)
-  wedge.nix             # Intel 9260 page-scan wedge: hotkey watchdog
-  unwedge.sh            #   manual rescue script
-  wedge-watchdog.sh     #   timer script (10 s detect-and-re-arm)
+  wedge.nix             # Intel 9260 Bluetooth wedge rescue (sudoers + package)
+  unwedge.sh            #   rfkill-cycle rescue script
+
 patches/                # the .patch files the modules above apply
 modules/                # generic, reusable on any machine
   base.nix              # boot, firmware blacklist, locale, users, system packages

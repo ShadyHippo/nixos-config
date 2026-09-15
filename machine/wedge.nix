@@ -9,20 +9,20 @@
 # register, so the host stops answering pages and a paired controller can never
 # reconnect — pressing it appears to do nothing. Two pieces:
 #
-#   1. `unwedge` — manual rescue, bound to $mod+BackSpace (home/sway/config).
-#      Reads 0x03 0x0019, writes 0x03 0x001a 0x02, re-reads, then watches for a
-#      reconnect. Runs as root via a scoped NOPASSWD rule.
-#   2. `wedge-watchdog` — a systemd timer that detects the wedge and re-arms the
-#      register by itself, so the hotkey becomes the fallback rather than the
-#      only mechanism. Each episode is logged (journald + /var/log/
-#      wedge-watchdog.log) with the kernel's own PSCAN belief, to eventually
-#      identify the trigger.
+#   `unwedge` — manual rescue, bound to $mod+BackSpace (home/sway/config).
+#   Does what Bluejay's power toggle effectively does: a full rfkill off→on
+#   cycle of the radio. The firmware reset re-asserts Scan_Enable, which the
+#   plain hcitool write-back (0x03 0x001a 0x02) could NOT keep re-applied —
+#   the firmware dropped it again. The hard cycle is the only consistent fix.
+#   The old wedge-watchdog.service/timer (which polled Scan_Enable every 10 s)
+#   was removed 2026-09-15: the rfkill cycle works, the register probing did
+#   not detect-and-heal reliably.
 #
 # Firmware is already current (ibt-18-16-1.sfi build 201-12.24 == the
 # linux-firmware-20260810 blob) and the 2025 update was reverted upstream
 # (linux-bluetooth bug 220306), so there is no upgrade path; a host-side repair
 # is the only option. The trigger (PTT/WiFi coexistence, suspend/resume, or an
-# idle transition) is still unknown — see the watchdog log.
+# idle transition) is still unknown.
 #
 # Also dropped 2026-09-12 (boot-freeze bisection): the btusb remote-wake v2
 # patch, since deleted, plus btusb.enable_autosuspend=0 / iwlwifi.bt_coex_active=0
@@ -40,17 +40,13 @@ let
   hciPath = pkgs.lib.makeBinPath [
     pkgs.bluez
     pkgs.coreutils
-    pkgs.gawk
     pkgs.gnugrep
+    pkgs.util-linux
   ];
 
   unwedge = pkgs.writeShellScriptBin "unwedge" (''
     export PATH="${hciPath}:$PATH"
   '' + builtins.readFile ./unwedge.sh);
-
-  wedge-watchdog = pkgs.writeShellScriptBin "wedge-watchdog" (''
-    export PATH="${hciPath}:$PATH"
-  '' + builtins.readFile ./wedge-watchdog.sh);
 in
 {
   environment.systemPackages = [ unwedge ];
@@ -59,7 +55,6 @@ in
   # prompt on, so it cannot answer a password prompt. Both the store path and
   # the system path are listed so it works whether invoked via PATH or directly.
   # (A rule for the ~/.config symlink would be refused: user-owned path.)
-  # The watchdog needs no sudoers rule — it runs as root.
   security.sudo.extraRules = [{
     users = [ "hippo" ];
     commands = [
@@ -68,25 +63,5 @@ in
     ];
   }];
 
-  systemd.services.wedge-watchdog = {
-    description = "Re-arm the 9260 page-scan register if the radio silently dropped it";
-    after = [ "bluetooth.service" ];
-    wants = [ "bluetooth.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${wedge-watchdog}/bin/wedge-watchdog";
-    };
-  };
-
-  systemd.timers.wedge-watchdog = {
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      # Wait for boot to settle before the first probe, then poll steadily.
-      # One HCI read per tick is cheap; the script exits immediately when the
-      # adapter is down or Scan Enable is healthy.
-      OnBootSec = "2min";
-      OnUnitActiveSec = "10s";
-      AccuracySec = "1s";
-    };
-  };
 }
+
