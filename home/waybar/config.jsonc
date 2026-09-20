@@ -59,12 +59,15 @@
         "tooltip-format": "RAM: {percentage}% used"
     },
 
-    // CPU temp: point straight at the coretemp package sensor. Waybar 0.15
-    // ignores `hwmon-by-name` (falls back to thermal_zone0 = pch_cannonlake),
-    // which is why it read ~42C. coretemp temp1_input == x86_pkg_temp.
+    // CPU temp: coretemp "Package id 0" (== x86_pkg_temp).
+    // Do NOT hardcode `hwmon-path` — the hwmonN number is allocated at boot and
+    // shifts (it was hwmon5, is now hwmon6, ...), and when it goes stale waybar
+    // silently falls back to thermal_zone0 = pch_cannonlake (~45C). Instead let
+    // waybar discover the current hwmon dir under the stable coretemp.0 device.
     // amber >60, red >80.
     "temperature": {
-        "hwmon-path": "/sys/devices/platform/coretemp.0/hwmon/hwmon5/temp1_input",
+        "hwmon-path-abs": "/sys/devices/platform/coretemp.0/hwmon",
+        "input-filename": "temp1_input",
         "format": " \uF2C9 {temperatureC}°C",
         "warning-threshold": 60,
         "critical-threshold": 80,

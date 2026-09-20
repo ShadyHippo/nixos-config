@@ -92,7 +92,8 @@ bindsym $mod+F11 exec ~/.config/sway/scripts/set-res.sh 1080    # streaming
 bindsym $mod+F12 exec ~/.config/sway/scripts/set-res.sh 4k      # desktop
 
 # Brightness/volume OSD via swayosd (server autostarted above)
-bindsym XF86MonBrightnessDown exec swayosd-client --brightness lower
+# --min-brightness overrides swayosd's default 5% floor; 1% = raw 1200/120000.
+bindsym XF86MonBrightnessDown exec swayosd-client --brightness lower --min-brightness 1
 bindsym XF86MonBrightnessUp exec swayosd-client --brightness raise
 bindsym XF86AudioLowerVolume exec swayosd-client --output-volume lower
 bindsym XF86AudioRaiseVolume exec swayosd-client --output-volume raise
