@@ -25,18 +25,20 @@
     let
       system = "x86_64-linux";
       identity = import ./machine/identity.nix;
+      # Unstable nixpkgs for the handful of packages that need it (nerd-fonts
+      # 3.5.0+ for the complete Material Design Icons glyph block). Instantiated
+      # ONCE here and shared — a second `import nixpkgs-unstable` is a second
+      # full eval of nixpkgs.
+      unstable = import nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
+      };
     in
     {
       nixosConfigurations.${identity.hostname} = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
-          inherit inputs;
-          # Unstable nixpkgs for system modules (nerd-fonts 3.5.0+ needed for
-          # complete Material Design Icons glyph block).
-          unstable = import nixpkgs-unstable {
-            inherit system;
-            config.allowUnfree = true;
-          };
+          inherit inputs unstable;
         };
         modules = [
           # gruvbox-dark-gtk 1.0.2 ships a broken gtk-3.0/gtk.css: a 62-byte
@@ -94,10 +96,7 @@
                 inputs.nix-flatpak.homeManagerModules.nix-flatpak
               ];
 
-              _module.args.unstable = import nixpkgs-unstable {
-                inherit system;
-                config.allowUnfree = true;
-              };
+              _module.args.unstable = unstable;
             };
           }
         ];

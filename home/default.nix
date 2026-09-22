@@ -26,17 +26,12 @@ in
   # ---------------------------------------------------------------------------
   home.packages = with pkgs; [
     ghostty                # terminal
-    neovim                 # Neovim
     qalculate-gtk          # calculator (floating window rule exists for it)
     jq                     # used by sway screenshot/res scripts
 
-    # Sway session
-    fuzzel                 # app launcher ($mod+d)
-    waybar                 # status bar
-    kanshi                 # monitor hotplug profiles
-    swaylock               # screen lock
-    swayidle               # idle lock/dpms
-    mako                   # notifications
+    # Sway session binaries (fuzzel, waybar, kanshi, swaylock, swayidle, mako)
+    # come from programs.sway.extraPackages in modules/desktop.nix, so they sit
+    # on the sway session's PATH — not duplicated here.
     nwg-displays           # GUI monitor arranger — SESSION-ONLY, never saved
     swayosd                # volume/brightness OSD popups
     libpulseaudio          # pactl, for low-level audio control
@@ -216,7 +211,8 @@ in
 
   # fastfetch: no config override, uses defaults (auto-detects NixOS logo).
 
-  # pinyin ready at login ($mod+Shift+t)
+  # bash: zsh is the login shell; this only keeps interactive bash working
+  # (HM writes ~/.bashrc so session variables are sourced there too).
   programs.bash.enable = true;
 
   # ---------------------------------------------------------------------------
