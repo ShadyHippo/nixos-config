@@ -7,6 +7,12 @@
 # 3-step, then stores the link key and marks the device Paired+Bonded so it
 # reconnects over Bluetooth after unplugging. Full rationale: README.md.
 #
+# Respects hid-nintendo wired_mode: if /sys/bus/hid/drivers/nintendo/wired_mode
+# reads 1 the user asked for wired USB input, so device_added() logs and
+# returns before touching the devnode - the kernel driver owns the controller
+# and cable pairing would fight it. If the attribute is absent (unpatched
+# kernel) the read fails and behaviour is the normal cable pairing above.
+#
 # Apply: patch -p1, from a BlueZ source root.
 #
 # Copyright (C) 2026 Tim Van Dyke <tim.vandyke123@gmail.com>
@@ -20,8 +26,8 @@
 # the nxbt "Example Pairing Session" capture (Brikwerk).
 
 diff -ruN a/Makefile.plugins b/Makefile.plugins
---- a/Makefile.plugins	2026-09-14 14:00:40.191885763 -0400
-+++ b/Makefile.plugins	2026-09-14 14:00:40.196610102 -0400
+--- a/Makefile.plugins	2026-09-22 13:55:38.041238644 -0400
++++ b/Makefile.plugins	2026-09-22 13:55:38.043628441 -0400
 @@ -93,7 +93,8 @@
  
  if SIXAXIS
@@ -33,8 +39,8 @@ diff -ruN a/Makefile.plugins b/Makefile.plugins
  endif
  
 diff -ruN a/plugins/sixaxis.c b/plugins/sixaxis.c
---- a/plugins/sixaxis.c	2026-09-14 14:00:40.204205371 -0400
-+++ b/plugins/sixaxis.c	2026-09-14 14:00:40.208025218 -0400
+--- a/plugins/sixaxis.c	2026-09-22 13:55:38.048862617 -0400
++++ b/plugins/sixaxis.c	2026-09-22 13:55:38.051051047 -0400
 @@ -27,9 +27,12 @@
  #include <libudev.h>
  
@@ -318,7 +324,7 @@ diff -ruN a/plugins/sixaxis.c b/plugins/sixaxis.c
  		return false;
  	}
  
-@@ -413,6 +549,8 @@
+@@ -413,11 +549,42 @@
  	hid_name = udev_device_get_property_value(hid_parent, "HID_NAME");
  
  	cp = get_pairing(vid, pid, hid_name);
@@ -327,7 +333,41 @@ diff -ruN a/plugins/sixaxis.c b/plugins/sixaxis.c
  	*sysfs_path = g_strdup(udev_device_get_syspath(udevice));
  
  	return cp;
-@@ -432,7 +570,8 @@
+ }
+ 
++/*
++ * ProBlue: hid-nintendo's wired_mode switch. When it is on, the user asked
++ * for wired USB input, so the kernel driver already owns the controller:
++ * pairing it over the cable would fight the driver for the hidraw and pin
++ * the controller to USB. Leave it alone.
++ *
++ * A missing attribute (patched kernel not booted, or a future upstream
++ * version without this local patch) reads as "not wired" so we degrade to
++ * normal cable pairing behaviour.
++ */
++static bool nintendo_wired_mode(void)
++{
++	char buf[8] = { 0 };
++	int fd;
++	ssize_t len;
++
++	fd = open("/sys/bus/hid/drivers/nintendo/wired_mode", O_RDONLY);
++	if (fd < 0)
++		return false;
++
++	len = read(fd, buf, sizeof(buf) - 1);
++	close(fd);
++
++	if (len <= 0)
++		return false;
++
++	return buf[0] == '1';
++}
++
+ static void device_added(struct udev_device *udevice)
+ {
+ 	struct btd_adapter *adapter;
+@@ -432,7 +599,8 @@
  
  	cp = get_pairing_type_for_device(udevice, &bus, &sysfs_path);
  	if (!cp || (cp->type != CABLE_PAIRING_SIXAXIS &&
@@ -337,7 +377,25 @@ diff -ruN a/plugins/sixaxis.c b/plugins/sixaxis.c
  		g_free(sysfs_path);
  		return;
  	}
-@@ -472,7 +611,8 @@
+@@ -442,6 +610,17 @@
+ 		return;
+ 	}
+ 
++	/*
++	 * ProBlue: wired_mode is on, so the controller belongs to
++	 * hid-nintendo this boot. Do not cable-pair it.
++	 */
++	if (nintendo_wired_mode()) {
++		info("sixaxis: %s is in wired mode, skipping cable pairing",
++					cp->name);
++		g_free(sysfs_path);
++		return;
++	}
++
+ 	info("sixaxis: compatible device connected: %s (%04X:%04X %s)",
+ 				cp->name, cp->vid, cp->pid, sysfs_path);
+ 
+@@ -472,7 +651,8 @@
  		return;
  
  	g_hash_table_steal(pending_auths, sysfs_path);
@@ -349,7 +407,7 @@ diff -ruN a/plugins/sixaxis.c b/plugins/sixaxis.c
  static gboolean monitor_watch(GIOChannel *source, GIOCondition condition,
 diff -ruN a/profiles/input/procon.c b/profiles/input/procon.c
 --- a/profiles/input/procon.c	1969-12-31 19:00:00.000000000 -0500
-+++ b/profiles/input/procon.c	2026-09-14 14:00:40.215594711 -0400
++++ b/profiles/input/procon.c	2026-09-22 13:55:38.055967543 -0400
 @@ -0,0 +1,427 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
@@ -781,7 +839,7 @@ diff -ruN a/profiles/input/procon.c b/profiles/input/procon.c
 \ No newline at end of file
 diff -ruN a/profiles/input/procon.h b/profiles/input/procon.h
 --- a/profiles/input/procon.h	1969-12-31 19:00:00.000000000 -0500
-+++ b/profiles/input/procon.h	2026-09-14 14:00:40.222815906 -0400
++++ b/profiles/input/procon.h	2026-09-22 13:55:38.060852190 -0400
 @@ -0,0 +1,131 @@
 +/* SPDX-License-Identifier: GPL-2.0-or-later */
 +/*
@@ -916,8 +974,8 @@ diff -ruN a/profiles/input/procon.h b/profiles/input/procon.h
 +#endif /* _PROCON_H_ */
 \ No newline at end of file
 diff -ruN a/profiles/input/server.c b/profiles/input/server.c
---- a/profiles/input/server.c	2026-09-14 14:00:40.230083636 -0400
-+++ b/profiles/input/server.c	2026-09-14 14:00:40.233018964 -0400
+--- a/profiles/input/server.c	2026-09-22 13:55:38.065576957 -0400
++++ b/profiles/input/server.c	2026-09-22 13:55:38.067504934 -0400
 @@ -31,6 +31,7 @@
  #include "src/profile.h"
  
@@ -978,8 +1036,8 @@ diff -ruN a/profiles/input/server.c b/profiles/input/server.c
  		goto drop;
  	}
 diff -ruN a/profiles/input/sixaxis.h b/profiles/input/sixaxis.h
---- a/profiles/input/sixaxis.h	2026-09-14 14:00:40.237931842 -0400
-+++ b/profiles/input/sixaxis.h	2026-09-14 14:00:40.240158182 -0400
+--- a/profiles/input/sixaxis.h	2026-09-22 13:55:38.071015760 -0400
++++ b/profiles/input/sixaxis.h	2026-09-22 13:55:38.072960061 -0400
 @@ -13,10 +13,18 @@
  #ifndef _SIXAXIS_H_
  #define _SIXAXIS_H_
@@ -1000,8 +1058,8 @@ diff -ruN a/profiles/input/sixaxis.h b/profiles/input/sixaxis.h
  
  struct cable_pairing {
 diff -ruN a/src/adapter.c b/src/adapter.c
---- a/src/adapter.c	2026-09-14 14:00:40.244150635 -0400
-+++ b/src/adapter.c	2026-09-14 14:00:40.246182290 -0400
+--- a/src/adapter.c	2026-09-22 13:55:38.076628465 -0400
++++ b/src/adapter.c	2026-09-22 13:55:38.079970137 -0400
 @@ -5889,6 +5889,31 @@
  
  	DBG("adapter %s has been enabled", adapter->path);
@@ -1142,8 +1200,8 @@ diff -ruN a/src/adapter.c b/src/adapter.c
  					const void *param, void *user_data)
  {
 diff -ruN a/src/adapter.h b/src/adapter.h
---- a/src/adapter.h	2026-09-14 14:00:40.249773428 -0400
-+++ b/src/adapter.h	2026-09-14 14:00:40.251536990 -0400
+--- a/src/adapter.h	2026-09-22 13:55:38.084196337 -0400
++++ b/src/adapter.h	2026-09-22 13:55:38.086137728 -0400
 @@ -78,6 +78,9 @@
  const char *btd_adapter_get_name(struct btd_adapter *adapter);
  void btd_adapter_remove_device(struct btd_adapter *adapter,

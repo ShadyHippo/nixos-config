@@ -1,10 +1,21 @@
-# ProBlue - hid-nintendo USB passivity (kernel 6.18.46)
+# ProBlue - hid-nintendo USB passivity + wired_mode opt-in (kernel 6.18.46)
 #
-# On the USB transport only, hid-nintendo binds and exposes hidraw but sends
-# nothing: no 0x80 02/03/04 session, no subcommands, no LED/battery init, and no
-# /dev/input device. Bluetooth is untouched. This frees the hidraw for
+# Default: on the USB transport only, hid-nintendo binds and exposes hidraw but
+# sends nothing: no 0x80 02/03/04 session, no subcommands, no LED/battery init,
+# and no /dev/input device. Bluetooth is untouched. This frees the hidraw for
 # bluetoothd Pro Controller cable pairing, and because nothing sends 0x80 04
 # ("pin to USB") the controller reverts to Bluetooth when unplugged.
+#
+# Opt-in wired USB input: a driver-global switch at
+# /sys/bus/hid/drivers/nintendo/wired_mode (0/1, set by
+# machine/problue-wire-switch.sh). With it set, a wired Pro Controller is
+# probed like the Bluetooth path instead - full init, input, leds, battery - so
+# low-latency wired input works without fighting bluetoothd. The switch is read
+# at probe time only, so it applies to the next plug; a controller already
+# bound keeps the role it probed with. Gated to USB_DEVICE_ID_NINTENDO_PROCON
+# so a charging grip or NSO pad keeps its stock behaviour.
+#
+# This is a local, non-upstreamable extension.
 # Full rationale: README.md.
 #
 # Apply: patch -p1, from a kernel source root.
@@ -18,78 +29,95 @@
 # Nintendo_Switch_Reverse_Engineering.
 
 diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
---- a/drivers/hid/hid-nintendo.c	2026-09-14 14:00:40.265622101 -0400
-+++ b/drivers/hid/hid-nintendo.c	2026-09-14 14:00:40.267339825 -0400
-@@ -771,6 +771,18 @@
+--- a/drivers/hid/hid-nintendo.c	2026-09-22 16:05:48.538432041 -0400
++++ b/drivers/hid/hid-nintendo.c	2026-09-22 16:05:48.540395110 -0400
+@@ -771,6 +771,79 @@
  	return ctlr->hdev->bus == BUS_USB;
  }
  
++/*
++ * Driver-global opt-in wired mode. This is a local, non-upstreamable switch:
++ * the sysfs attribute below lets userspace choose, per boot, whether a wired
++ * Pro Controller is driven by this driver (wired USB input) or left alone so
++ * bluetoothd can cable-pair it (the default). It is deliberately not a
++ * per-controller setting: the choice is "which role does USB play today",
++ * decided before the controller is plugged in.
++ */
++static bool wired_mode;
++
++static ssize_t wired_mode_show(struct device_driver *drv, char *buf)
++{
++	return sysfs_emit(buf, "%d\n", wired_mode ? 1 : 0);
++}
++
++static ssize_t wired_mode_store(struct device_driver *drv, const char *buf,
++				size_t count)
++{
++	bool val;
++	int ret;
++
++	ret = kstrtobool(buf, &val);
++	if (ret)
++		return ret;
++
++	wired_mode = val;
++
++	/*
++	 * Only affects the next probe. Controllers already bound keep the
++	 * role they were probed with; replug to change it.
++	 */
++	return count;
++}
++
++static DRIVER_ATTR_RW(wired_mode);
++
++static struct attribute *nintendo_driver_attrs[] = {
++	&driver_attr_wired_mode.attr,
++	NULL,
++};
++ATTRIBUTE_GROUPS(nintendo_driver);
++
++/*
++ * Attach the group to ->driver.groups (the DRIVER's own directory), not
++ * ->driver.dev_groups. dev_groups adds attributes to each *bound device*, so
++ * using it would put wired_mode under every controller's directory and leave
++ * /sys/bus/hid/drivers/nintendo/ unchanged. groups is what
++ * driver_add_groups() walks when creating the driver's own sysfs attributes.
++ * The assignment happens in nintendo_init(), where nintendo_hid_driver is
++ * already declared.
++ */
++
 +/*
 + * Only the USB transport is passive. Userspace drives the wired side over
 + * the USB hidraw (the UART session handshake and the pairing subcommands),
 + * so the driver must not write to that hidraw at all. Bluetooth is
 + * untouched: full init, input, leds and battery, parsing the 0x30 reports
 + * into the real /dev/input device.
++ *
++ * When wired_mode is on, a wired Pro Controller is instead handled like the
++ * Bluetooth path: full init, input, leds and battery. Gate the switch to the
++ * Pro Controller so a charging grip or NSO pad plugged in while wired_mode
++ * is on keeps its stock behaviour.
 + */
 +static inline bool joycon_is_passive(struct joycon_ctlr *ctlr)
 +{
-+	return joycon_using_usb(ctlr);
++	if (!joycon_using_usb(ctlr))
++		return false;
++	if (ctlr->hdev->product != USB_DEVICE_ID_NINTENDO_PROCON)
++		return true;
++	return !wired_mode;
 +}
 +
  static int __joycon_hid_send(struct hid_device *hdev, u8 *data, size_t len)
  {
  	u8 *buf;
-@@ -905,20 +917,6 @@
- 	return ret;
- }
- 
--static int joycon_send_usb(struct joycon_ctlr *ctlr, u8 cmd, u32 timeout)
--{
--	int ret;
--	u8 buf[2] = {JC_OUTPUT_USB_CMD};
--
--	buf[1] = cmd;
--	ctlr->usb_ack_match = cmd;
--	ctlr->msg_type = JOYCON_MSG_TYPE_USB;
--	ret = joycon_hid_send_sync(ctlr, buf, sizeof(buf), timeout);
--	if (ret)
--		hid_dbg(ctlr->hdev, "send usb command failed; ret=%d\n", ret);
--	return ret;
--}
--
- static int joycon_send_subcmd(struct joycon_ctlr *ctlr,
- 			      struct joycon_subcmd_request *subcmd,
- 			      size_t data_len, u32 timeout)
-@@ -2464,32 +2462,17 @@
+@@ -2464,9 +2537,35 @@
  	int ret = 0;
  
  	mutex_lock(&ctlr->output_mutex);
 -	/* if handshake command fails, assume ble pro controller */
 -	if (joycon_using_usb(ctlr) && !joycon_send_usb(ctlr, JC_USB_CMD_HANDSHAKE, HZ)) {
 -		hid_dbg(hdev, "detected USB controller\n");
--		/* set baudrate for improved latency */
--		ret = joycon_send_usb(ctlr, JC_USB_CMD_BAUDRATE_3M, HZ);
--		if (ret) {
--			/*
--			 * We can function with the default baudrate.
--			 * Provide a warning, and continue on.
--			 */
--			hid_warn(hdev, "Failed to set baudrate (ret=%d), continuing anyway\n", ret);
--		}
--		/* handshake */
--		ret = joycon_send_usb(ctlr, JC_USB_CMD_HANDSHAKE, HZ);
--		if (ret) {
--			hid_err(hdev, "Failed handshake; ret=%d\n", ret);
--			goto out_unlock;
--		}
--		/*
--		 * Set no timeout (to keep controller in USB mode).
--		 * This doesn't send a response, so ignore the timeout.
--		 */
--		joycon_send_usb(ctlr, JC_USB_CMD_NO_TIMEOUT, HZ/10);
--	} else if (jc_type_is_chrggrip(ctlr)) {
--		hid_err(hdev, "Failed charging grip handshake\n");
--		ret = -ETIMEDOUT;
 +	/*
 +	 * On USB, leave the controller alone: the UART session (the
 +	 * 0x80 02/03/02 handshake and the "pin to USB" 0x80 04 command) and
@@ -101,10 +129,65 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
 +	 */
 +	if (joycon_is_passive(ctlr)) {
 +		hid_dbg(hdev, "passive USB controller; hidraw only\n");
- 		goto out_unlock;
++		goto out_unlock;
++	}
++
++	/*
++	 * wired_mode: this controller is ours, so establish the USB transport
++	 * the stock driver would have set up. Without it the controller keeps
++	 * talking Bluetooth and ignores every subcommand below (the probe dies
++	 * with -ETIMEDOUT in joycon_read_info). JC_USB_CMD_NO_TIMEOUT is the
++	 * "pin to USB" command: it stops the controller reverting to Bluetooth
++	 * and terminates any live BT link, which is the intent in wired mode.
++	 */
++	if (joycon_using_usb(ctlr)) {
++		ret = joycon_send_usb(ctlr, JC_USB_CMD_HANDSHAKE, HZ);
++		if (ret) {
++			hid_err(hdev, "Failed handshake; ret=%d\n", ret);
++			goto out_unlock;
++		}
++
+ 		/* set baudrate for improved latency */
+ 		ret = joycon_send_usb(ctlr, JC_USB_CMD_BAUDRATE_3M, HZ);
+ 		if (ret) {
+@@ -2476,21 +2575,19 @@
+ 			 */
+ 			hid_warn(hdev, "Failed to set baudrate (ret=%d), continuing anyway\n", ret);
+ 		}
++
+ 		/* handshake */
+ 		ret = joycon_send_usb(ctlr, JC_USB_CMD_HANDSHAKE, HZ);
+ 		if (ret) {
+ 			hid_err(hdev, "Failed handshake; ret=%d\n", ret);
+ 			goto out_unlock;
+ 		}
++
+ 		/*
+ 		 * Set no timeout (to keep controller in USB mode).
+ 		 * This doesn't send a response, so ignore the timeout.
+ 		 */
+ 		joycon_send_usb(ctlr, JC_USB_CMD_NO_TIMEOUT, HZ/10);
+-	} else if (jc_type_is_chrggrip(ctlr)) {
+-		hid_err(hdev, "Failed charging grip handshake\n");
+-		ret = -ETIMEDOUT;
+-		goto out_unlock;
  	}
  
-@@ -2690,6 +2673,17 @@
+ 	/* needed to retrieve the controller type */
+@@ -2641,6 +2738,12 @@
+ 
+ 	ctlr->hdev = hdev;
+ 	ctlr->ctlr_state = JOYCON_CTLR_STATE_INIT;
++	/*
++	 * Mark "no player id yet". joycon_leds_create() sets this too, but a
++	 * passive USB instance returns from probe before reaching it, and
++	 * nintendo_hid_remove() would otherwise free the zeroed 0.
++	 */
++	ctlr->player_id = U32_MAX;
+ 	ctlr->rumble_queue_head = 0;
+ 	ctlr->rumble_queue_tail = 0;
+ 	hid_set_drvdata(hdev, ctlr);
+@@ -2690,6 +2793,17 @@
  		goto err_close;
  	}
  
@@ -122,7 +205,27 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  	/* Initialize the leds */
  	ret = joycon_leds_create(ctlr);
  	if (ret) {
-@@ -2755,9 +2749,13 @@
+@@ -2716,7 +2830,8 @@
+ 	return 0;
+ 
+ err_ida:
+-	ida_free(&nintendo_player_id_allocator, ctlr->player_id);
++	if (ctlr->player_id != U32_MAX)
++		ida_free(&nintendo_player_id_allocator, ctlr->player_id);
+ err_close:
+ 	hid_hw_close(hdev);
+ err_stop:
+@@ -2741,7 +2856,8 @@
+ 	spin_unlock_irqrestore(&ctlr->lock, flags);
+ 
+ 	destroy_workqueue(ctlr->rumble_queue);
+-	ida_free(&nintendo_player_id_allocator, ctlr->player_id);
++	if (ctlr->player_id != U32_MAX)
++		ida_free(&nintendo_player_id_allocator, ctlr->player_id);
+ 
+ 	hid_hw_close(hdev);
+ 	hid_hw_stop(hdev);
+@@ -2755,9 +2871,13 @@
  	int ret;
  
  	hid_dbg(hdev, "resume\n");
@@ -139,3 +242,26 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  		return 0;
  	}
  
+@@ -2834,7 +2954,21 @@
+ };
+ static int __init nintendo_init(void)
+ {
+-	return hid_register_driver(&nintendo_hid_driver);
++	int ret;
++
++	/*
++	 * nintendo_hid_driver is a static struct we cannot use a designated
++	 * initializer for at this point, so set the driver attribute group
++	 * before registering. wired_mode lives under
++	 * /sys/bus/hid/drivers/nintendo/wired_mode.
++	 */
++	nintendo_hid_driver.driver.groups = nintendo_driver_groups;
++
++	ret = hid_register_driver(&nintendo_hid_driver);
++	if (ret)
++		nintendo_hid_driver.driver.groups = NULL;
++
++	return ret;
+ }
+ 
+ static void __exit nintendo_exit(void)
