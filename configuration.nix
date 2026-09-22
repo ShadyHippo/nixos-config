@@ -43,8 +43,6 @@ in
 
   services.flatpak.enable = true;
 
-  programs.firefox.enable = false;
-
   # zsh: sets the login shell + nix dirs on PATH for users whose shell is zsh.
   programs.zsh.enable = true;
 
@@ -69,7 +67,6 @@ in
     }))
     tree file tldr
     cifs-utils samba
-    mpv vlc ffmpeg
 
     # BatteryScope native deps (GTK4/libadwaita/SQLite) — mise builds the
     # Rust binary; Nix supplies the C libraries at build time.
@@ -98,8 +95,5 @@ in
   # Prefer dark color scheme app-wide (freedesktop color-scheme accent).
   xdg.portal.config.common.default = "gtk";
 
-  # LocalSend (LAN file transfer).
-  networking.firewall.allowedTCPPorts = [ 53317 ];
-  networking.firewall.allowedUDPPorts = [ 53317 ];
 }
 

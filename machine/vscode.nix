@@ -5,9 +5,9 @@
 #   1. delete this file
 #   2. remove `./machine/vscode.nix` from flake.nix's modules list
 #
-# Everything VS Code touches lives here: the package (vscode is also in
-# home/default.nix home.packages — that entry can stay or go; removing this
-# file keeps the binary installed but drops all config/extensions).
+# Everything VS Code touches lives here: the package, extensions and settings.
+# Removing this file (and its import in flake.nix) drops VS Code entirely —
+# there is no separate home.packages entry for it.
 # ─────────────────────────────────────────────────────────────────────────────
 { pkgs, ... }:
 

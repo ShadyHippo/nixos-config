@@ -36,6 +36,8 @@
 { pkgs, ... }:
 
 let
+  identity = import ./identity.nix;
+
   # Raw HCI access comes from bluez's hcitool/hciconfig; the rest is text tools.
   hciPath = pkgs.lib.makeBinPath [
     pkgs.bluez
@@ -56,7 +58,7 @@ in
   # the system path are listed so it works whether invoked via PATH or directly.
   # (A rule for the ~/.config symlink would be refused: user-owned path.)
   security.sudo.extraRules = [{
-    users = [ "hippo" ];
+    users = [ identity.username ];
     commands = [
       { command = "${unwedge}/bin/unwedge"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/unwedge"; options = [ "NOPASSWD" ]; }

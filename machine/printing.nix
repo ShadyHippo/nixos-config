@@ -31,6 +31,10 @@
     simple-scan              # scanner GUI
   ];
 
-  # mDNS so CUPS/avahi discover the printer on the LAN.
-  services.avahi.enable = true;
+  # mDNS so CUPS/avahi discover the printer on the LAN. nssmdns4 also lets
+  # plain tools resolve the printer's .local name (ping/ssh BRW....local).
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+  };
 }

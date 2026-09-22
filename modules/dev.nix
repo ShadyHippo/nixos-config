@@ -6,7 +6,9 @@
   # Container boundary is the safety net.
   virtualisation.docker = {
     enable = true;
-    enableOnBoot = true;
+    # Socket-activated: dockerd starts on the first `docker` command instead of
+    # at boot, so it costs nothing on a session that never uses it.
+    enableOnBoot = false;
     autoPrune = {
       enable = true;
       dates = "weekly";

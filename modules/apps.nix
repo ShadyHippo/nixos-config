@@ -29,7 +29,7 @@
     naps2
 
     # dev CLI
-    zellij gitui fzf ripgrep parallel pv
+    zellij gitui fzf parallel pv
 
     # python runtime (basic, stdlib only). For project work, make a venv:
     #   python3 -m venv .venv && source .venv/bin/activate
@@ -41,7 +41,7 @@
     libheif
 
     # viewers & transfer
-    imv localsend kdePackages.gwenview
+    imv kdePackages.gwenview
 
     # lifestyle
     hyfetch ani-cli
@@ -49,6 +49,10 @@
 
   # mesh VPN; run `sudo tailscale up` post-install
   services.tailscale.enable = true;
+
+  # LocalSend (LAN file transfer) — the module installs the package and opens
+  # port 53317 (TCP + UDP) in the firewall.
+  programs.localsend.enable = true;
 
   # printing/sane services live in machine/printing.nix
 
