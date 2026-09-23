@@ -1,4 +1,4 @@
-{ pkgs, unstable, ... }:
+{ pkgs, unstable, config, ... }:
 
 let
   theme  = import ../machine/theme.nix;
@@ -61,6 +61,8 @@ in
     # Bluetooth monitoring / debugging
     bluetuith                     # TUI bluetooth manager (connect, send files, monitor)
     bluez-tools                   # btmgmt, btinfo CLI tools for scripted BT control
+
+    quickshell                    # QML shell — game launcher menu (home/quickshell/)
   ];
 
   xdg.desktopEntries.batteryscope = {
@@ -529,6 +531,26 @@ in
 
   # Kanshi config
   xdg.configFile."kanshi/config".source = ./kanshi/config;
+
+  # QuickShell game-launcher menu (home/quickshell/shell.qml → the 'default'
+  # config at ~/.config/quickshell/shell.qml, run by `qs`). Same @TOKEN@
+  # approach as waybar: palette/font from theme.nix, icons from images/ (SVG,
+  # crisp at any preset), absolute binary paths so nothing depends on PATH.
+  # Autostart + $mod+g toggle live in home/sway/config. HM symlinks this file
+  # into the store, so qs hot-reload can't see across rebuilds — restart `qs`
+  # after switching to pick changes up (`qs kill`, then relaunch).
+  xdg.configFile."quickshell/shell.qml".text = builtins.replaceStrings
+    [ "@PAL_BG@" "@PAL_BGALT@" "@PAL_BGDIM@" "@PAL_FG@" "@PAL_FGDIM@"
+      "@PAL_ACCENT@" "@FONT@"
+      "@ICON_RETRODECK@" "@ICON_MOONLIGHT@" "@ICON_STEAM@"
+      "@BIN_FLATPAK@" "@BIN_MOONLIGHT@" "@BIN_STEAM@" "@BIN_SH@" "@SET_RES@" ]
+    [ pal.bg pal.bgAlt pal.bgDim pal.fg pal.fgDim
+      pal.accent theme.font.family
+      "${../images/retrodeck.svg}" "${../images/moonlight.svg}" "${../images/steam.svg}"
+      "${pkgs.flatpak}/bin/flatpak" "${pkgs.moonlight-qt}/bin/moonlight"
+      "${pkgs.steam}/bin/steam" "${pkgs.bash}/bin/bash"
+      "${config.home.homeDirectory}/.config/sway/scripts/set-res.sh" ]
+    (builtins.readFile ./quickshell/shell.qml);
 
   # Accent + legacy prefer-dark key that the `gtk` module does NOT write
   # (module owns color-scheme/font/cursor/theme via dconf below).

@@ -76,6 +76,11 @@ exec polkit-gnome-authentication-agent-1 # root auth prompts (replaces default)
 # Locks ONLY when the machine actually sleeps (e.g. lid close). No idle timers.
 exec swayidle -w before-sleep 'swaylock -f -c 282828'
 
+# Game launcher menu (quickshell) — starts hidden, $mod+g toggles it. NOT
+# exec_always: set-res.sh's `swaymsg reload` must not respawn it (`exec` only
+# runs at startup; -n blocks a duplicate if ever started by hand too).
+exec qs -n
+
 # ---------------------------------------------------------------------------
 # Screenshots — clipboard only, Windows-snipping-tool style
 #   PrintScreen        whole screen -> clipboard
@@ -113,6 +118,7 @@ bindsym $mod+o exec ~/.config/sway/scripts/wlsunset-toggle.sh
 bindsym $mod+Return exec $term
 bindsym $mod+Shift+Return exec zen --new-window                  # default browser, new window (opens Zen new-tab page, visible with icon)
 bindsym $mod+d exec $menu
+bindsym $mod+g exec qs ipc call menu toggle   # [mine] game launcher menu (quickshell)
 bindsym $mod+Shift+q kill
 
 # focus: vim directions + arrows [mine - vim-style]
