@@ -9,7 +9,9 @@
 // outputs via card.scale, so the menu never overflows when you launch games.
 //
 // Autostart: sway `exec qs -n` (starts hidden — shown: false).
-// Toggle:    $mod+g → qs ipc call menu toggle   (also: open / hide / Esc)
+// Toggle:    $mod+g → qs ipc call menu toggle   (also: open / hide / Esc /
+//            controller Home). D-pad/stick move the selection, A activates,
+//            B closes — dispatched in-process by the gamepad patch.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -20,17 +22,60 @@ ShellRoot {
   id: root
   property bool shown: false
 
-  // External control (sway keybind now; the controller home-button patch later
-  // just flips root.shown the same way). Signature types are MANDATORY — qs
-  // drops untyped handler functions (and a function named `show` collides with
-  // the `qs ipc show` listing command, hence `open`). Verified end-to-end via
-  // `qs ipc call menu getShown` round-trip: false → true → false.
+  // Controller/keyboard selection: row 0 = launchers, row 1 = presets.
+  property int selRow: 0
+  property int selCol: 0
+
+  readonly property var launchers: [
+    { name: "RetroDECK", hint: "emulators",
+      icon: "file://@ICON_RETRODECK@",
+      cmd: ["@BIN_FLATPAK@", "run", "net.retrodeck.retrodeck"] },
+    { name: "Moonlight", hint: "PC streaming",
+      icon: "file://@ICON_MOONLIGHT@",
+      cmd: ["@BIN_MOONLIGHT@"] },
+    { name: "Steam", hint: "Big Picture",
+      icon: "file://@ICON_STEAM@",
+      cmd: ["@BIN_STEAM@", "steam://open/bigpicture"] },
+  ]
+
+  readonly property var presets: [
+    { preset: "720",  label: "720p",  key: "$mod+F10" },
+    { preset: "1080", label: "1080p", key: "$mod+F11" },
+    { preset: "4k",   label: "4K",    key: "$mod+F12" },
+  ]
+
+  function resetSelection(): void { selRow = 0; selCol = 0 }
+  function launchAt(index: int): void {
+    Quickshell.execDetached(launchers[index].cmd)
+    shown = false
+  }
+  function presetAt(index: int): void {
+    Quickshell.execDetached(["@BIN_SH@", "@SET_RES@", presets[index].preset])
+  }
+  function activateSelection(): void {
+    if (selRow === 0) launchAt(selCol)
+    else presetAt(selCol)
+  }
+
+  // External control: $mod+g sway bind, controller Home (patched qs) and the
+  // gamepad move*/activate/back dispatch below. Signature types are MANDATORY
+  // — qs drops untyped handler functions (and a function named `show`
+  // collides with the `qs ipc show` listing command, hence `open`).
   IpcHandler {
     target: "menu"
     function toggle(): void { root.shown = !root.shown }
     function open(): void { root.shown = true }
     function hide(): void { root.shown = false }
     function getShown(): bool { return root.shown }
+
+    // Gamepad navigation (patch dispatches these). The guards keep in-game
+    // controller input from touching a hidden menu.
+    function moveUp(): void { if (root.shown) root.selRow = Math.max(0, root.selRow - 1) }
+    function moveDown(): void { if (root.shown) root.selRow = Math.min(1, root.selRow + 1) }
+    function moveLeft(): void { if (root.shown) root.selCol = Math.max(0, root.selCol - 1) }
+    function moveRight(): void { if (root.shown) root.selCol = Math.min(root.launchers.length - 1, root.selCol + 1) }
+    function activate(): void { if (root.shown) root.activateSelection() }
+    function back(): void { root.shown = false }
   }
 
   PanelWindow {
@@ -46,7 +91,10 @@ ShellRoot {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
-    onVisibleChanged: if (visible) backdrop.forceActiveFocus()
+    onVisibleChanged: if (visible) {
+      root.resetSelection()
+      backdrop.forceActiveFocus()
+    }
 
     // Siblings, not nested: backdrop first (dim + dismiss), card above it at
     // full opacity (a child of the 0.92-opacity backdrop would inherit it).
@@ -96,27 +144,19 @@ ShellRoot {
           spacing: 32
 
           Repeater {
-            model: [
-              { name: "RetroDECK", hint: "emulators",
-                icon: "file://@ICON_RETRODECK@",
-                cmd: ["@BIN_FLATPAK@", "run", "net.retrodeck.retrodeck"] },
-              { name: "Moonlight", hint: "PC streaming",
-                icon: "file://@ICON_MOONLIGHT@",
-                cmd: ["@BIN_MOONLIGHT@"] },
-              { name: "Steam", hint: "Big Picture",
-                icon: "file://@ICON_STEAM@",
-                cmd: ["@BIN_STEAM@", "steam://open/bigpicture"] },
-            ]
+            model: root.launchers
 
             delegate: Rectangle {
+              required property int index
               required property var modelData
 
               Layout.preferredWidth: 340
               Layout.preferredHeight: 360
               radius: 16
               color: "@PAL_BG@"
-              border.width: tileMouse.containsMouse ? 3 : 1
-              border.color: tileMouse.containsMouse ? "@PAL_ACCENT@" : "@PAL_BGDIM@"
+              property bool focused: root.shown && root.selRow === 0 && root.selCol === index
+              border.width: (tileMouse.containsMouse || focused) ? 3 : 1
+              border.color: (tileMouse.containsMouse || focused) ? "@PAL_ACCENT@" : "@PAL_BGDIM@"
 
               ColumnLayout {
                 anchors.centerIn: parent
@@ -149,10 +189,8 @@ ShellRoot {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  Quickshell.execDetached(modelData.cmd)
-                  root.shown = false
-                }
+                onEntered: { root.selRow = 0; root.selCol = index }
+                onClicked: root.launchAt(index)
               }
             }
           }
@@ -175,21 +213,19 @@ ShellRoot {
             spacing: 20
 
             Repeater {
-              model: [
-                { preset: "720",  label: "720p",  key: "$mod+F10" },
-                { preset: "1080", label: "1080p", key: "$mod+F11" },
-                { preset: "4k",   label: "4K",    key: "$mod+F12" },
-              ]
+              model: root.presets
 
               delegate: Rectangle {
+                required property int index
                 required property var modelData
 
                 Layout.preferredWidth: 280
                 Layout.preferredHeight: 100
                 radius: 12
                 color: "@PAL_BG@"
-                border.width: resMouse.containsMouse ? 3 : 1
-                border.color: resMouse.containsMouse ? "@PAL_ACCENT@" : "@PAL_BGDIM@"
+                property bool focused: root.shown && root.selRow === 1 && root.selCol === index
+                border.width: (resMouse.containsMouse || focused) ? 3 : 1
+                border.color: (resMouse.containsMouse || focused) ? "@PAL_ACCENT@" : "@PAL_BGDIM@"
 
                 ColumnLayout {
                   anchors.centerIn: parent
@@ -214,7 +250,8 @@ ShellRoot {
                   anchors.fill: parent
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: Quickshell.execDetached(["@BIN_SH@", "@SET_RES@", modelData.preset])
+                  onEntered: { root.selRow = 1; root.selCol = index }
+                  onClicked: root.presetAt(index)
                 }
               }
             }

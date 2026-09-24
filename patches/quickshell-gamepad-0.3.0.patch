@@ -1,0 +1,415 @@
+diff --git a/src/io/CMakeLists.txt b/src/io/CMakeLists.txt
+index 991beaa..35c9525 100644
+--- a/src/io/CMakeLists.txt
++++ b/src/io/CMakeLists.txt
+@@ -7,6 +7,7 @@ qt_add_library(quickshell-io STATIC
+ 	ipccomm.cpp
+ 	ipc.cpp
+ 	ipchandler.cpp
++	gamepadwatcher.cpp
+ )
+ 
+ if (SOCKETS)
+diff --git a/src/io/gamepadwatcher.cpp b/src/io/gamepadwatcher.cpp
+new file mode 100644
+index 0000000..1ef017d
+--- /dev/null
++++ b/src/io/gamepadwatcher.cpp
+@@ -0,0 +1,304 @@
++#include "gamepadwatcher.hpp"
++#include <cerrno>
++#include <cstring>
++
++#include <fcntl.h>
++#include <linux/input.h>
++#include <sys/ioctl.h>
++#include <unistd.h>
++
++#include <qcoreapplication.h>
++#include <qdir.h>
++#include <qfile.h>
++#include <qlogging.h>
++#include <qloggingcategory.h>
++#include <qsocketnotifier.h>
++#include <qstringlist.h>
++#include <qtenvironmentvariables.h>
++
++#include "../core/generation.hpp"
++#include "../core/logcat.hpp"
++#include "ipchandler.hpp"
++
++namespace qs::io {
++
++namespace {
++QS_LOGGING_CATEGORY(logGamepad, "quickshell.gamepad", QtInfoMsg)
++
++bool hasCapabilityBit(const char* bits, qsizetype bit) {
++	return bits[bit / 8] & (1 << (bit % 8));
++}
++
++// Controllers advertise buttons (EV_KEY) and sticks/pads (EV_ABS). Also
++// requiring BTN_MODE (the home button) drops the IMU node hid-nintendo
++// exposes alongside the main node, as it carries no keys.
++bool watchesHomeButton(int fd) {
++	char types[(EV_CNT + 7) / 8] = {};
++	if (::ioctl(fd, EVIOCGBIT(0, sizeof(types)), types) == -1) return false;
++	if (!hasCapabilityBit(types, EV_KEY) || !hasCapabilityBit(types, EV_ABS)) return false;
++
++	char keys[(KEY_CNT + 7) / 8] = {};
++	if (::ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keys)), keys) == -1) return false;
++
++	return hasCapabilityBit(keys, BTN_MODE);
++}
++
++// Stick zone with hysteresis: enter beyond ±12000, release inside ±5000.
++int stickZone(int previous, qint32 value) {
++	constexpr qint32 enterThreshold = 12000;
++	constexpr qint32 releaseThreshold = 5000;
++
++	if (value >= enterThreshold) return 1;
++	if (value <= -enterThreshold) return -1;
++	if (value >= -releaseThreshold && value <= releaseThreshold) return 0;
++	return previous;
++}
++} // namespace
++
++void GamepadWatcher::start() { new GamepadWatcher(QCoreApplication::instance()); }
++
++GamepadWatcher::GamepadWatcher(QObject* parent)
++    : QObject(parent)
++    , ipcTarget(qEnvironmentVariable("QS_GAMEPAD_IPC_TARGET", "menu"))
++    , homeFunction(qEnvironmentVariable("QS_GAMEPAD_HOME_FUNCTION", "toggle")) {
++	QObject::connect(
++	    &this->watcher,
++	    &QFileSystemWatcher::directoryChanged,
++	    this,
++	    &GamepadWatcher::rescan
++	);
++
++	if (this->watcher.addPath(QStringLiteral("/dev/input"))) {
++		qCInfo(logGamepad) << "Watching /dev/input for controllers.";
++	} else {
++		qCWarning(logGamepad)
++		    << "Could not watch /dev/input; controllers connected later will be missed.";
++	}
++
++	this->rescan();
++}
++
++void GamepadWatcher::rescan() {
++	QStringList vanished;
++
++	for (auto it = this->devices.constBegin(); it != this->devices.constEnd(); ++it) {
++		if (!QFile::exists(it.key())) vanished.append(it.key());
++	}
++
++	for (const auto& path: vanished) this->removeDevice(path);
++
++	const QDir inputDir(QStringLiteral("/dev/input"));
++	const auto entries = inputDir.entryList({QStringLiteral("event*")}, QDir::System | QDir::Files);
++
++	for (const auto& entry: entries) {
++		const auto path = inputDir.filePath(entry);
++		if (this->devices.contains(path)) continue;
++
++		const auto fd = ::open(path.toLocal8Bit().constData(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++		if (fd == -1) {
++			const auto err = errno;
++			qCDebug(logGamepad) << "Could not open" << path << ":" << ::strerror(err);
++			continue;
++		}
++
++		if (!watchesHomeButton(fd)) {
++			::close(fd);
++			continue;
++		}
++
++		// Controllers can expose multiple nodes sharing a physical path.
++		char physBuf[256] = {};
++		::ioctl(fd, EVIOCGPHYS(sizeof(physBuf) - 1), physBuf);
++		const auto phys = QString::fromLocal8Bit(physBuf);
++
++		bool duplicate = false;
++		if (!phys.isEmpty()) {
++			const auto& known = this->devices;
++			for (const auto& device: known) {
++				if (device.phys == phys) duplicate = true;
++			}
++		}
++
++		if (duplicate) {
++			qCDebug(logGamepad) << "Skipping duplicate controller node" << path;
++			::close(fd);
++			continue;
++		}
++
++		auto axis = [fd](quint16 code) {
++			Axis range;
++			input_absinfo info {};
++			if (::ioctl(fd, EVIOCGABS(code), info) != -1 && info.maximum > info.minimum) {
++				range.center = (info.maximum + info.minimum) / 2;
++				const auto extent = (info.maximum - info.minimum) / 2;
++				if (extent > 0) range.extent = extent;
++			}
++			return range;
++		};
++
++		auto* notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
++
++		QObject::connect(
++		    notifier,
++		    &QSocketNotifier::activated,
++		    this,
++		    [this, path](QSocketDescriptor, QSocketNotifier::Type) { this->readDevice(path); }
++		);
++
++		char nameBuf[256] = {};
++		::ioctl(fd, EVIOCGNAME(sizeof(nameBuf) - 1), nameBuf);
++
++		this->devices.insert(
++		    path,
++		    Device {
++		        .fd = fd,
++		        .notifier = notifier,
++		        .phys = phys,
++		        .stickX = axis(ABS_X),
++		        .stickY = axis(ABS_Y),
++		    }
++		);
++
++		qCInfo(logGamepad)
++		    << "Watching gamepad device" << path << ":" << QString::fromLocal8Bit(nameBuf);
++	}
++}
++
++void GamepadWatcher::readDevice(const QString& path) {
++	auto it = this->devices.find(path);
++	if (it == this->devices.end()) return;
++
++	auto& device = *it;
++	const auto fd = device.fd;
++
++	for (;;) {
++		input_event event {};
++		const auto len = ::read(fd, &event, sizeof(event));
++
++		if (len == -1) {
++			if (errno == EAGAIN || errno == EWOULDBLOCK) break;
++			this->removeDevice(path);
++			return;
++		}
++
++		if (len == 0) {
++			this->removeDevice(path);
++			return;
++		}
++
++		if (len != static_cast<ssize_t>(sizeof(event))) break;
++
++		if (event.type == EV_KEY) {
++			this->onKey(event.code, event.value);
++		} else if (event.type == EV_ABS) {
++			this->onAbs(device, event.code, event.value);
++		}
++	}
++}
++
++void GamepadWatcher::removeDevice(const QString& path) {
++	const auto it = this->devices.find(path);
++	if (it == this->devices.end()) return;
++
++	qCInfo(logGamepad) << "Stopped watching gamepad device" << path;
++	::close(it->fd);
++	it->notifier->deleteLater();
++	this->devices.erase(it);
++}
++
++void GamepadWatcher::onKey(quint16 code, qint32 value) {
++	// Presses only (0 = release, 2 = repeat).
++	if (value != 1) return;
++
++	switch (code) {
++	case BTN_MODE: this->onHome(); return;
++	case BTN_DPAD_UP: this->dispatch("moveUp"); return;
++	case BTN_DPAD_DOWN: this->dispatch("moveDown"); return;
++	case BTN_DPAD_LEFT: this->dispatch("moveLeft"); return;
++	case BTN_DPAD_RIGHT: this->dispatch("moveRight"); return;
++	// hid-nintendo maps positionally: physical A = BTN_EAST, physical B =
++	// BTN_SOUTH (Linux gamepad spec reports by position, not label).
++	case BTN_EAST: this->dispatch("activate"); return;
++	case BTN_SOUTH: this->dispatch("back"); return;
++	default:
++		qCDebug(logGamepad) << "Unhandled key" << code << value;
++		return;
++	}
++}
++
++void GamepadWatcher::onAbs(Device& device, quint16 code, qint32 value) {
++	QString function;
++
++	switch (code) {
++	case ABS_HAT0X:
++	case ABS_HAT0Y: {
++		auto& hat = code == ABS_HAT0X ? device.hatX : device.hatY;
++
++		if (value == 0) {
++			hat = 0;
++			return;
++		}
++
++		if (value == hat) return;
++		hat = value;
++
++		if (code == ABS_HAT0X) function = value < 0 ? "moveLeft" : "moveRight";
++		else function = value < 0 ? "moveUp" : "moveDown";
++		break;
++	}
++	case ABS_X:
++	case ABS_Y: {
++		auto& axis = code == ABS_X ? device.stickX : device.stickY;
++		const auto normalized = (value - axis.center) * 32767 / axis.extent;
++		const auto previous = axis.zone;
++		axis.zone = stickZone(previous, normalized);
++
++		if (axis.zone == 0 || axis.zone == previous) return;
++
++		if (code == ABS_X) function = axis.zone < 0 ? "moveLeft" : "moveRight";
++		else function = axis.zone < 0 ? "moveUp" : "moveDown";
++		break;
++	}
++	default:
++		qCDebug(logGamepad) << "Unhandled axis" << code << value;
++		return;
++	}
++
++	this->dispatch(function);
++}
++
++void GamepadWatcher::onHome() {
++	qCInfo(logGamepad) << "Home button pressed.";
++	this->dispatch(this->homeFunction);
++}
++
++void GamepadWatcher::dispatch(const QString& function) {
++	auto* generation = EngineGeneration::currentGeneration();
++	if (!generation) {
++		qCDebug(logGamepad) << "Ignoring controller input before config load.";
++		return;
++	}
++
++	auto* handler = ipc::IpcHandlerRegistry::forGeneration(generation)->findHandler(this->ipcTarget);
++	if (!handler) {
++		qCWarning(logGamepad) << "No IPC handler with target" << this->ipcTarget;
++		return;
++	}
++
++	auto* func = handler->findFunction(function);
++	if (!func) {
++		qCWarning(logGamepad) << "IPC target" << this->ipcTarget << "has no function" << function;
++		return;
++	}
++
++	if (!func->argumentTypes.isEmpty()) {
++		qCWarning(logGamepad) << "IPC function" << function << "expects arguments";
++		return;
++	}
++
++	auto storage = ipc::IpcCallStorage(*func);
++	func->invoke(handler, storage);
++
++	qCDebug(logGamepad) << "Dispatched" << this->ipcTarget << "." << function;
++}
++} // namespace qs::io
+diff --git a/src/io/gamepadwatcher.hpp b/src/io/gamepadwatcher.hpp
+new file mode 100644
+index 0000000..9686e13
+--- /dev/null
++++ b/src/io/gamepadwatcher.hpp
+@@ -0,0 +1,67 @@
++#pragma once
++
++#include <qfilesystemwatcher.h>
++#include <qhash.h>
++#include <qobject.h>
++#include <qsocketnotifier.h>
++#include <qstring.h>
++#include <qtmetamacros.h>
++#include <qtypes.h>
++
++namespace qs::io {
++
++// Reads gamepad input directly from evdev and dispatches it as in-process
++// IpcHandler calls, mirroring `qs ipc call` without opening the IPC socket.
++//
++// Home (BTN_MODE) dispatches the home function; the d-pad, left stick and
++// A/B dispatch moveUp/moveDown/moveLeft/moveRight/activate/back for menu
++// navigation (the QML side no-ops while the menu is hidden, so in-game
++// controller input is unaffected). Devices are matched by capability
++// (EV_KEY + EV_ABS + BTN_MODE), never grabbed, and re-scanned whenever
++// /dev/input changes, so controllers connected after startup still work.
++//
++// The target defaults to 'menu' (QS_GAMEPAD_IPC_TARGET) and the home
++// function to 'toggle' (QS_GAMEPAD_HOME_FUNCTION).
++class GamepadWatcher: public QObject {
++	Q_OBJECT;
++
++public:
++	// Starts the process-wide watcher. Called once during launch.
++	static void start();
++
++	explicit GamepadWatcher(QObject* parent = nullptr);
++
++private:
++	// Stick axes can be reported signed or unsigned; ranges come from
++	// EVIOCGABS at open time and raw values are normalized against them.
++	struct Axis {
++		int center = 0;
++		int extent = 32767;
++		int zone = 0;
++	};
++
++	struct Device {
++		int fd = -1;
++		QSocketNotifier* notifier = nullptr;
++		QString phys;
++		Axis stickX;
++		Axis stickY;
++		int hatX = 0;
++		int hatY = 0;
++	};
++
++	void rescan();
++	void readDevice(const QString& path);
++	void removeDevice(const QString& path);
++	void onKey(quint16 code, qint32 value);
++	void onAbs(Device& device, quint16 code, qint32 value);
++	void onHome();
++	void dispatch(const QString& function);
++
++	QString ipcTarget;
++	QString homeFunction;
++	QHash<QString, Device> devices;
++	QFileSystemWatcher watcher;
++};
++
++} // namespace qs::io
+diff --git a/src/launch/launch.cpp b/src/launch/launch.cpp
+index 71d9983..d8a0d18 100644
+--- a/src/launch/launch.cpp
++++ b/src/launch/launch.cpp
+@@ -23,6 +23,7 @@
+ #include "../core/paths.hpp"
+ #include "../core/plugin.hpp"
+ #include "../core/rootwrapper.hpp"
++#include "../io/gamepadwatcher.hpp"
+ #include "../ipc/ipc.hpp"
+ #include "build.hpp"
+ #include "launch_p.hpp"
+@@ -310,6 +311,7 @@ int launch(const LaunchArgs& args, char** argv, QCoreApplication* coreApplicatio
+ 	}
+ 
+ 	qs::ipc::IpcServer::start();
++	qs::io::GamepadWatcher::start();
+ 	QsPaths::instance()->createLock();
+ 
+ 	auto root = RootWrapper(args.configPath, shellId);

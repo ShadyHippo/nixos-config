@@ -62,7 +62,16 @@ in
     bluetuith                     # TUI bluetooth manager (connect, send files, monitor)
     bluez-tools                   # btmgmt, btinfo CLI tools for scripted BT control
 
-    quickshell                    # QML shell — game launcher menu (home/quickshell/)
+    # QML shell — game launcher menu (home/quickshell/). Locally patched to
+    # read gamepad home-button presses from evdev and dispatch them as
+    # in-process IPC calls (menu.toggle by default; QS_GAMEPAD_HOME_TARGET /
+    # QS_GAMEPAD_HOME_FUNCTION redirect). Patches live in ../patches/ and
+    # target nixpkgs' quickshell 0.3.0 — re-base on version drift, both
+    # sides fail loudly. Disclosed prototype for
+    # quickshell-mirror/quickshell#1189, not upstreamable as-is.
+    (quickshell.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [ ../patches/quickshell-gamepad-0.3.0.patch ];
+    }))
   ];
 
   xdg.desktopEntries.batteryscope = {
