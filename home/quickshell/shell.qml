@@ -76,6 +76,14 @@ ShellRoot {
     function moveRight(): void { if (root.shown) root.selCol = Math.min(root.launchers.length - 1, root.selCol + 1) }
     function activate(): void { if (root.shown) root.activateSelection() }
     function back(): void { root.shown = false }
+
+    // Global desktop layer — no shown-guard: mod enforced by the patch.
+    // Bumpers: prev/next existing workspace; triggers: prev/next CLEAN
+    // workspace (1-10 scan — ws-clean.sh creates the empty slot).
+    function workspacePrev(): void { Quickshell.execDetached(["@BIN_SWAYMSG@", "workspace", "prev"]) }
+    function workspaceNext(): void { Quickshell.execDetached(["@BIN_SWAYMSG@", "workspace", "next"]) }
+    function cleanPrev(): void { Quickshell.execDetached(["@BIN_SH@", "@WS_CLEAN@", "prev"]) }
+    function cleanNext(): void { Quickshell.execDetached(["@BIN_SH@", "@WS_CLEAN@", "next"]) }
   }
 
   PanelWindow {

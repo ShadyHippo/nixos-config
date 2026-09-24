@@ -63,8 +63,8 @@ in
     bluez-tools                   # btmgmt, btinfo CLI tools for scripted BT control
 
     # QML shell — game launcher menu (home/quickshell/). Locally patched to
-    # read gamepad home-button presses from evdev and dispatch them as
-    # in-process IPC calls (menu.toggle by default; QS_GAMEPAD_HOME_TARGET /
+    # read gamepad input from evdev (mod chords + menu navigation) and
+    # dispatch it as in-process IPC calls (QS_GAMEPAD_IPC_TARGET /
     # QS_GAMEPAD_HOME_FUNCTION redirect). Patches live in ../patches/ and
     # target nixpkgs' quickshell 0.3.0 — re-base on version drift, both
     # sides fail loudly. Disclosed prototype for
@@ -375,6 +375,10 @@ in
     source = ./sway/scripts/screenshot.sh;
     executable = true;
   };
+  xdg.configFile."sway/scripts/ws-clean.sh" = {
+    source = ./sway/scripts/ws-clean.sh;
+    executable = true;
+  };
   xdg.configFile."sway/scripts/keys.sh" = {
     source = ./sway/scripts/keys.sh;
     executable = true;
@@ -552,13 +556,16 @@ in
     [ "@PAL_BG@" "@PAL_BGALT@" "@PAL_BGDIM@" "@PAL_FG@" "@PAL_FGDIM@"
       "@PAL_ACCENT@" "@FONT@"
       "@ICON_RETRODECK@" "@ICON_MOONLIGHT@" "@ICON_STEAM@"
-      "@BIN_FLATPAK@" "@BIN_MOONLIGHT@" "@BIN_STEAM@" "@BIN_SH@" "@SET_RES@" ]
+      "@BIN_FLATPAK@" "@BIN_MOONLIGHT@" "@BIN_STEAM@" "@BIN_SH@" "@SET_RES@"
+      "@BIN_SWAYMSG@" "@WS_CLEAN@" ]
     [ pal.bg pal.bgAlt pal.bgDim pal.fg pal.fgDim
       pal.accent theme.font.family
       "${../images/retrodeck.svg}" "${../images/moonlight.svg}" "${../images/steam.svg}"
       "${pkgs.flatpak}/bin/flatpak" "${pkgs.moonlight-qt}/bin/moonlight"
       "${pkgs.steam}/bin/steam" "${pkgs.bash}/bin/bash"
-      "${config.home.homeDirectory}/.config/sway/scripts/set-res.sh" ]
+      "${config.home.homeDirectory}/.config/sway/scripts/set-res.sh"
+      "${pkgs.sway}/bin/swaymsg"
+      "${config.home.homeDirectory}/.config/sway/scripts/ws-clean.sh" ]
     (builtins.readFile ./quickshell/shell.qml);
 
   # Accent + legacy prefer-dark key that the `gtk` module does NOT write
