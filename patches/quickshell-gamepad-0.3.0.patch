@@ -12,10 +12,10 @@ index 991beaa..35c9525 100644
  if (SOCKETS)
 diff --git a/src/io/gamepadwatcher.cpp b/src/io/gamepadwatcher.cpp
 new file mode 100644
-index 0000000..ccb00d7
+index 0000000..306bc43
 --- /dev/null
 +++ b/src/io/gamepadwatcher.cpp
-@@ -0,0 +1,328 @@
+@@ -0,0 +1,330 @@
 +#include "gamepadwatcher.hpp"
 +#include <cerrno>
 +#include <cstring>
@@ -262,6 +262,8 @@ index 0000000..ccb00d7
 +	// BTN_SOUTH (Linux gamepad spec reports by position, not label).
 +	case BTN_EAST: this->dispatch("activate"); return;
 +	case BTN_SOUTH: this->dispatch("back"); return;
++	// Physical X: focus the selected window in the menu's window list.
++	case BTN_NORTH: this->dispatch("focusWindow"); return;
 +	default:
 +		qCDebug(logGamepad) << "Unhandled key" << code << value;
 +		return;
@@ -346,7 +348,7 @@ index 0000000..ccb00d7
 +} // namespace qs::io
 diff --git a/src/io/gamepadwatcher.hpp b/src/io/gamepadwatcher.hpp
 new file mode 100644
-index 0000000..f3d25f2
+index 0000000..f7ca05c
 --- /dev/null
 +++ b/src/io/gamepadwatcher.hpp
 @@ -0,0 +1,72 @@
@@ -369,8 +371,8 @@ index 0000000..f3d25f2
 +// the home function (bare Home is left to games like RetroArch that
 +// capture it), mod+bumpers dispatch workspace prev/next and mod+triggers
 +// jump to a clean desktop — the desktop control layer. The d-pad, left
-+// stick and A/B dispatch
-+// moveUp/moveDown/moveLeft/moveRight/activate/back for menu navigation
++// stick and A/B/X dispatch
++// moveUp/moveDown/moveLeft/moveRight/activate/focusWindow/back for menu
 +// (the QML side no-ops while the menu is hidden, so in-game controller
 +// input is unaffected). Devices are matched by capability
 +// (EV_KEY + EV_ABS + BTN_MODE), never grabbed, and re-scanned whenever

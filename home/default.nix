@@ -71,6 +71,12 @@ in
     # quickshell-mirror/quickshell#1189, not upstreamable as-is.
     (quickshell.overrideAttrs (old: {
       patches = (old.patches or [ ]) ++ [ ../patches/quickshell-gamepad-0.3.0.patch ];
+      # Was RelWithDebInfo + separateDebugInfo. -g costs ~20-40% compile time
+      # per TU and the split debug output was 87MB. NDEBUG was already set by
+      # RelWithDebInfo, so only -O2→-O3 + no-debug-info change. Tradeoff:
+      # cpptrace/gdb crash traces lose source lines (function names survive).
+      cmakeBuildType = "Release";
+      separateDebugInfo = false;
     }))
   ];
 
@@ -379,6 +385,10 @@ in
     source = ./sway/scripts/ws-clean.sh;
     executable = true;
   };
+  xdg.configFile."sway/scripts/ws-list.sh" = {
+    source = ./sway/scripts/ws-list.sh;
+    executable = true;
+  };
   xdg.configFile."sway/scripts/keys.sh" = {
     source = ./sway/scripts/keys.sh;
     executable = true;
@@ -557,7 +567,7 @@ in
       "@PAL_ACCENT@" "@FONT@"
       "@ICON_RETRODECK@" "@ICON_MOONLIGHT@" "@ICON_STEAM@"
       "@BIN_FLATPAK@" "@BIN_MOONLIGHT@" "@BIN_STEAM@" "@BIN_SH@" "@SET_RES@"
-      "@BIN_SWAYMSG@" "@WS_CLEAN@" ]
+      "@BIN_SWAYMSG@" "@WS_CLEAN@" "@WS_LIST@" ]
     [ pal.bg pal.bgAlt pal.bgDim pal.fg pal.fgDim
       pal.accent theme.font.family
       "${../images/retrodeck.svg}" "${../images/moonlight.svg}" "${../images/steam.svg}"
@@ -565,7 +575,8 @@ in
       "${pkgs.steam}/bin/steam" "${pkgs.bash}/bin/bash"
       "${config.home.homeDirectory}/.config/sway/scripts/set-res.sh"
       "${pkgs.sway}/bin/swaymsg"
-      "${config.home.homeDirectory}/.config/sway/scripts/ws-clean.sh" ]
+      "${config.home.homeDirectory}/.config/sway/scripts/ws-clean.sh"
+      "${config.home.homeDirectory}/.config/sway/scripts/ws-list.sh" ]
     (builtins.readFile ./quickshell/shell.qml);
 
   # Accent + legacy prefer-dark key that the `gtk` module does NOT write

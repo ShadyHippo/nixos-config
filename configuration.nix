@@ -46,6 +46,41 @@ in
   # zsh: sets the login shell + nix dirs on PATH for users whose shell is zsh.
   programs.zsh.enable = true;
 
+  # C++ compile cache — quickshell patch rebuilds were cold 3-4 min (~600 Qt
+  # TUs, no incrementality in Nix); warm rebuilds should drop to ~1 min.
+  # enable creates /var/cache/ccache via tmpfiles (root:nixbld 0770) and the
+  # nix-ccache stats wrapper. The module does NOT add the cache dir to the
+  # build sandbox — without the nix.settings line below every ccache'd build
+  # fails loudly (ccache can't create its dir inside the sandbox).
+  # CCACHE_SLOPPINESS must add pch_defines,time_macros on top of the module's
+  # random_seed: quickshell is PCH-heavy (cmake/pch.cmake) and ccache can't
+  # hash PCH-using TUs without them → near-zero hit rate.
+  # BOOTSTRAP: the dir + sandbox mount only land at ACTIVATION, but the
+  # build runs BEFORE that — so the very first switch must pre-create the
+  # dir and pass the sandbox path explicitly (root is trusted, daemon
+  # honors --option):
+  #   sudo mkdir -m0770 /var/cache/ccache && sudo chown root:nixbld /var/cache/ccache
+  #   sudo nixos-rebuild switch --flake .#hippo-xps --option extra-sandbox-paths /var/cache/ccache
+  # After that activation plain switches work (tmpfiles + nix.conf persist).
+  programs.ccache.enable = true;
+  nix.settings.extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
+
+  nixpkgs.overlays = [
+    (final: prev: {
+      ccacheWrapper = prev.ccacheWrapper.override (old: {
+        extraConfig = old.extraConfig + ''
+          export CCACHE_DIR="${config.programs.ccache.cacheDir}"
+          export CCACHE_COMPRESS=1
+          export CCACHE_SLOPPINESS="random_seed,pch_defines,time_macros"
+          export CCACHE_UMASK=007
+        '';
+      });
+      # quickshell with ccache: first build cold (populates the cache),
+      # subsequent rebuilds only compile TUs the patch actually touched.
+      quickshell = prev.quickshell.override { stdenv = final.ccacheStdenv; };
+    })
+  ];
+
   # List packages installed in system profile.
   # NOTE: base.nix and home/default.nix also install packages. This list is
   # for things that belong at system scope only (build tools, CLI, browsers).

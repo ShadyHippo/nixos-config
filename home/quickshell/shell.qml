@@ -11,7 +11,9 @@
 // Autostart: sway `exec qs -n` (starts hidden — shown: false).
 // Toggle:    $mod+g → qs ipc call menu toggle   (also: open / hide / Esc /
 //            controller Home). D-pad/stick move the selection, A activates,
-//            B closes — dispatched in-process by the gamepad patch.
+//            X focuses the selected window, B closes — dispatched in-process
+//            by the gamepad patch. The menu lists windows on the focused
+//            workspace (ws-list.sh scan, refreshed while open).
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -22,9 +24,11 @@ ShellRoot {
   id: root
   property bool shown: false
 
-  // Controller/keyboard selection: row 0 = launchers, row 1 = presets.
-  property int selRow: 0
-  property int selCol: 0
+  // Controller/keyboard selection: sections = launchers / windows / presets.
+  property int selSection: 0
+  property int selIndex: 0
+  // Windows on the focused workspace: [{id, title, app}], ws-list.sh scan.
+  property var winList: []
 
   readonly property var launchers: [
     { name: "RetroDECK", hint: "emulators",
@@ -44,7 +48,12 @@ ShellRoot {
     { preset: "4k",   label: "4K",    key: "$mod+F12" },
   ]
 
-  function resetSelection(): void { selRow = 0; selCol = 0 }
+  function resetSelection(): void { selSection = 0; selIndex = 0 }
+  function sectionLength(section: int): int {
+    if (section === 0) return launchers.length
+    if (section === 1) return winList.length
+    return presets.length
+  }
   function launchAt(index: int): void {
     Quickshell.execDetached(launchers[index].cmd)
     shown = false
@@ -52,9 +61,68 @@ ShellRoot {
   function presetAt(index: int): void {
     Quickshell.execDetached(["@BIN_SH@", "@SET_RES@", presets[index].preset])
   }
+  function closeWindow(index: int): void {
+    Quickshell.execDetached(["@BIN_SWAYMSG@", "[con_id=" + winList[index].id + "] kill"])
+  }
+  function focusSelection(): void {
+    if (selSection !== 1 || selIndex >= winList.length) return
+    Quickshell.execDetached(["@BIN_SWAYMSG@", "[con_id=" + winList[selIndex].id + "] focus"])
+  }
   function activateSelection(): void {
-    if (selRow === 0) launchAt(selCol)
-    else presetAt(selCol)
+    if (selSection === 0) launchAt(selIndex)
+    else if (selSection === 1 && selIndex < winList.length) closeWindow(selIndex)
+    else if (selSection === 2) presetAt(selIndex)
+  }
+  function moveSection(dir: int): void {
+    let section = selSection + dir
+    while (section >= 0 && section <= 2) {
+      if (sectionLength(section) > 0) {
+        selSection = section
+        selIndex = Math.min(selIndex, sectionLength(section) - 1)
+        return
+      }
+      section += dir
+    }
+  }
+  function moveItem(dir: int): void {
+    const length = sectionLength(selSection)
+    if (length === 0) return
+    selIndex = Math.max(0, Math.min(length - 1, selIndex + dir))
+  }
+
+  // Window list for the focused workspace. The scan lives in ws-list.sh:
+  // get_workspaces identifies the workspace (stable while this menu holds
+  // keyboard focus — get_tree's focused con vanishes under the grab, which
+  // emptied the section ~1s after opening in the first implementation).
+  function parseTree(text: string): void {
+    try {
+      winList = JSON.parse(text)
+      selIndex = Math.min(selIndex, Math.max(0, sectionLength(selSection) - 1))
+    } catch (error) {
+      console.warn("window scan failed:", error)
+    }
+  }
+
+  Process {
+    id: winScan
+    command: ["@BIN_SH@", "@WS_LIST@"]
+    stdout: StdioCollector {
+      id: scanOut
+      onStreamFinished: root.parseTree(scanOut.text)
+    }
+  }
+
+  function scanWindows(): void {
+    winScan.running = false
+    winScan.running = true
+  }
+
+  // Rescan every second while visible: games spawn/close behind the menu.
+  Timer {
+    interval: 1000
+    repeat: true
+    running: root.shown
+    onTriggered: root.scanWindows()
   }
 
   // External control: $mod+g sway bind, controller Home (patched qs) and the
@@ -70,11 +138,12 @@ ShellRoot {
 
     // Gamepad navigation (patch dispatches these). The guards keep in-game
     // controller input from touching a hidden menu.
-    function moveUp(): void { if (root.shown) root.selRow = Math.max(0, root.selRow - 1) }
-    function moveDown(): void { if (root.shown) root.selRow = Math.min(1, root.selRow + 1) }
-    function moveLeft(): void { if (root.shown) root.selCol = Math.max(0, root.selCol - 1) }
-    function moveRight(): void { if (root.shown) root.selCol = Math.min(root.launchers.length - 1, root.selCol + 1) }
+    function moveUp(): void { if (root.shown) root.moveSection(-1) }
+    function moveDown(): void { if (root.shown) root.moveSection(1) }
+    function moveLeft(): void { if (root.shown) root.moveItem(-1) }
+    function moveRight(): void { if (root.shown) root.moveItem(1) }
     function activate(): void { if (root.shown) root.activateSelection() }
+    function focusWindow(): void { if (root.shown) root.focusSelection() }
     function back(): void { root.shown = false }
 
     // Global desktop layer — no shown-guard: mod enforced by the patch.
@@ -101,6 +170,7 @@ ShellRoot {
 
     onVisibleChanged: if (visible) {
       root.resetSelection()
+      root.scanWindows()
       backdrop.forceActiveFocus()
     }
 
@@ -149,6 +219,8 @@ ShellRoot {
 
         // ── The three launchers ──
         RowLayout {
+          id: launchersRow
+          Layout.alignment: Qt.AlignHCenter
           spacing: 32
 
           Repeater {
@@ -162,7 +234,7 @@ ShellRoot {
               Layout.preferredHeight: 360
               radius: 16
               color: "@PAL_BG@"
-              property bool focused: root.shown && root.selRow === 0 && root.selCol === index
+              property bool focused: root.shown && root.selSection === 0 && root.selIndex === index
               border.width: (tileMouse.containsMouse || focused) ? 3 : 1
               border.color: (tileMouse.containsMouse || focused) ? "@PAL_ACCENT@" : "@PAL_BGDIM@"
 
@@ -197,8 +269,80 @@ ShellRoot {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onEntered: { root.selRow = 0; root.selCol = index }
+                onEntered: { root.selSection = 0; root.selIndex = index }
                 onClicked: root.launchAt(index)
+              }
+            }
+          }
+        }
+
+        // ── Windows on the focused workspace (A = close, X = focus) ──
+        ColumnLayout {
+          visible: root.winList.length > 0
+          Layout.alignment: Qt.AlignHCenter
+          spacing: 16
+
+          Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: "ON THIS DESKTOP (" + root.winList.length + ")"
+            color: "@PAL_FGDIM@"
+            font { family: "@FONT@"; pixelSize: 18; bold: true }
+          }
+
+          RowLayout {
+            Layout.alignment: Qt.AlignHCenter
+            spacing: 20
+
+            Repeater {
+              model: root.winList
+
+              delegate: Rectangle {
+                id: chip
+                required property int index
+                required property var modelData
+
+                // Never outgrow the launcher row: chips shrink as the count
+                // rises, so the card width (and menu scale) stay put.
+                Layout.preferredWidth: Math.min(300, (launchersRow.implicitWidth - 20 * (root.winList.length - 1)) / root.winList.length)
+                Layout.preferredHeight: 110
+                radius: 12
+                color: "@PAL_BG@"
+                property bool focused: root.shown && root.selSection === 1 && root.selIndex === index
+                border.width: (winMouse.containsMouse || focused) ? 3 : 1
+                border.color: (winMouse.containsMouse || focused) ? "@PAL_ACCENT@" : "@PAL_BGDIM@"
+
+                ColumnLayout {
+                  anchors.centerIn: parent
+                  spacing: 4
+
+                  Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.maximumWidth: chip.width - 36
+                    text: modelData.title
+                    color: "@PAL_FG@"
+                    font { family: "@FONT@"; pixelSize: 18; bold: true }
+                    elide: Text.ElideMiddle
+                    horizontalAlignment: Text.AlignHCenter
+                  }
+                  Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.maximumWidth: chip.width - 36
+                    text: modelData.app
+                    color: "@PAL_FGDIM@"
+                    font { family: "@FONT@"; pixelSize: 14 }
+                    elide: Text.ElideMiddle
+                    horizontalAlignment: Text.AlignHCenter
+                  }
+                }
+
+                MouseArea {
+                  id: winMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onEntered: { root.selSection = 1; root.selIndex = index }
+                  onClicked: root.closeWindow(index)
+                }
               }
             }
           }
@@ -231,7 +375,7 @@ ShellRoot {
                 Layout.preferredHeight: 100
                 radius: 12
                 color: "@PAL_BG@"
-                property bool focused: root.shown && root.selRow === 1 && root.selCol === index
+                property bool focused: root.shown && root.selSection === 2 && root.selIndex === index
                 border.width: (resMouse.containsMouse || focused) ? 3 : 1
                 border.color: (resMouse.containsMouse || focused) ? "@PAL_ACCENT@" : "@PAL_BGDIM@"
 
@@ -258,7 +402,7 @@ ShellRoot {
                   anchors.fill: parent
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
-                  onEntered: { root.selRow = 1; root.selCol = index }
+                  onEntered: { root.selSection = 2; root.selIndex = index }
                   onClicked: root.presetAt(index)
                 }
               }
