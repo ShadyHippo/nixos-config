@@ -10,8 +10,10 @@
 //
 // Autostart: sway `exec qs -n` (starts hidden — shown: false).
 // Toggle:    $mod+g → qs ipc call menu toggle   (also: open / hide / Esc /
-//            controller Home). D-pad/stick move the selection, A activates,
-//            X focuses the selected window, B closes — dispatched in-process
+//            controller Home). D-pad/stick move the selection; A activates
+//            (launch / open / apply), and on a window it selects (focuses)
+//            it and dismisses the menu; X closes the selected window and
+//            leaves the menu open; B closes the menu — dispatched in-process
 //            by the gamepad patch. Capture (the mod button) + d-pad drives
 //            volume (up/down) and brightness (right/left) desktop-wide.
 //            The menu lists windows on the focused
@@ -73,9 +75,17 @@ ShellRoot {
     if (selSection !== 1 || selIndex >= winList.length) return
     Quickshell.execDetached(["@BIN_SWAYMSG@", "[con_id=" + winList[selIndex].id + "] focus"])
   }
+  function closeSelection(): void {
+    if (selSection !== 1 || selIndex >= winList.length) return
+    closeWindow(selIndex)
+  }
   function activateSelection(): void {
     if (selSection === 0) launchAt(selIndex)
-    else if (selSection === 1 && selIndex < winList.length) closeWindow(selIndex)
+    else if (selSection === 1 && selIndex < winList.length) {
+      // Open (not kill) the app, then get out of its way.
+      focusSelection()
+      shown = false
+    }
     else if (selSection === 2) presetAt(selIndex)
   }
   function moveSection(dir: int): void {
@@ -148,7 +158,7 @@ ShellRoot {
     function moveLeft(): void { if (root.shown) root.moveItem(-1) }
     function moveRight(): void { if (root.shown) root.moveItem(1) }
     function activate(): void { if (root.shown) root.activateSelection() }
-    function focusWindow(): void { if (root.shown) root.focusSelection() }
+    function closeApp(): void { if (root.shown) root.closeSelection() }
     function back(): void { root.shown = false }
 
     // Global desktop layer — no shown-guard: mod enforced by the patch.
@@ -297,7 +307,8 @@ ShellRoot {
           }
         }
 
-        // ── Windows on the focused workspace (A = close, X = focus) ──
+        // ── Windows on the focused workspace (A = select/focus + dismiss,
+        //    X = close app, menu stays open) ──
         ColumnLayout {
           visible: root.winList.length > 0
           Layout.alignment: Qt.AlignHCenter
@@ -362,7 +373,7 @@ ShellRoot {
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onEntered: { root.selSection = 1; root.selIndex = index }
-                  onClicked: root.closeWindow(index)
+                  onClicked: { root.selSection = 1; root.selIndex = index; root.focusSelection(); root.shown = false }
                 }
               }
             }

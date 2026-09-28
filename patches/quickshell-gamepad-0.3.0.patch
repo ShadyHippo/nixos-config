@@ -272,8 +272,8 @@ index 0000000..306bc43
 +	// BTN_SOUTH (Linux gamepad spec reports by position, not label).
 +	case BTN_EAST: this->dispatch("activate"); return;
 +	case BTN_SOUTH: this->dispatch("back"); return;
-+	// Physical X: focus the selected window in the menu's window list.
-+	case BTN_NORTH: this->dispatch("focusWindow"); return;
++	// Physical X: close the selected window (menu stays open).
++	case BTN_NORTH: this->dispatch("closeApp"); return;
 +	default:
 +		qCDebug(logGamepad) << "Unhandled key" << code << value;
 +		return;
@@ -386,7 +386,7 @@ index 0000000..f7ca05c
 +// capture it), mod+bumpers dispatch workspace prev/next, mod+triggers
 +// jump to a clean desktop and mod+d-pad drives volume/brightness — the
 +// desktop control layer. Bare d-pad, left stick and A/B/X dispatch
-+// moveUp/moveDown/moveLeft/moveRight/activate/focusWindow/back for menu
++// moveUp/moveDown/moveLeft/moveRight/activate/closeApp/back for menu
 +// (the QML side no-ops while the menu is hidden, so in-game controller
 +// input is unaffected). Devices are matched by capability
 +// (EV_KEY + EV_ABS + BTN_MODE), never grabbed, and re-scanned whenever
