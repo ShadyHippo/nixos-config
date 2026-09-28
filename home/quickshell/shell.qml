@@ -12,7 +12,9 @@
 // Toggle:    $mod+g → qs ipc call menu toggle   (also: open / hide / Esc /
 //            controller Home). D-pad/stick move the selection, A activates,
 //            X focuses the selected window, B closes — dispatched in-process
-//            by the gamepad patch. The menu lists windows on the focused
+//            by the gamepad patch. Capture (the mod button) + d-pad drives
+//            volume (up/down) and brightness (right/left) desktop-wide.
+//            The menu lists windows on the focused
 //            workspace (ws-list.sh scan, refreshed while open).
 import QtQuick
 import QtQuick.Layouts
@@ -156,6 +158,14 @@ ShellRoot {
     function workspaceNext(): void { Quickshell.execDetached(["@BIN_SWAYMSG@", "workspace", "next"]) }
     function cleanPrev(): void { Quickshell.execDetached(["@BIN_SH@", "@WS_CLEAN@", "prev"]) }
     function cleanNext(): void { Quickshell.execDetached(["@BIN_SH@", "@WS_CLEAN@", "next"]) }
+
+    // Desktop layer: capture (mod) + d-pad. swayosd-client draws the OSD so the
+    // level is visible over games; the patch only dispatches these while mod
+    // is held, so bare d-pad stays on menu navigation.
+    function volumeUp(): void { Quickshell.execDetached(["@BIN_SWAYOSD@", "--output-volume", "raise"]) }
+    function volumeDown(): void { Quickshell.execDetached(["@BIN_SWAYOSD@", "--output-volume", "lower"]) }
+    function brightnessUp(): void { Quickshell.execDetached(["@BIN_SWAYOSD@", "--brightness", "raise"]) }
+    function brightnessDown(): void { Quickshell.execDetached(["@BIN_SWAYOSD@", "--brightness", "lower", "--min-brightness", "1"]) }
   }
 
   PanelWindow {

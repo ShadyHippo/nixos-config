@@ -15,7 +15,7 @@ new file mode 100644
 index 0000000..306bc43
 --- /dev/null
 +++ b/src/io/gamepadwatcher.cpp
-@@ -0,0 +1,330 @@
+@@ -0,0 +1,344 @@
 +#include "gamepadwatcher.hpp"
 +#include <cerrno>
 +#include <cstring>
@@ -254,10 +254,20 @@ index 0000000..306bc43
 +	case BTN_TR2:
 +		if (device.mod) this->dispatch("cleanNext");
 +		return;
-+	case BTN_DPAD_UP: this->dispatch("moveUp"); return;
-+	case BTN_DPAD_DOWN: this->dispatch("moveDown"); return;
-+	case BTN_DPAD_LEFT: this->dispatch("moveLeft"); return;
-+	case BTN_DPAD_RIGHT: this->dispatch("moveRight"); return;
++	// D-pad doubles as volume/brightness while the capture button is
++	// held (desktop layer); otherwise it drives menu navigation.
++	case BTN_DPAD_UP:
++		this->dispatch(device.mod ? "volumeUp" : "moveUp");
++		return;
++	case BTN_DPAD_DOWN:
++		this->dispatch(device.mod ? "volumeDown" : "moveDown");
++		return;
++	case BTN_DPAD_LEFT:
++		this->dispatch(device.mod ? "brightnessDown" : "moveLeft");
++		return;
++	case BTN_DPAD_RIGHT:
++		this->dispatch(device.mod ? "brightnessUp" : "moveRight");
++		return;
 +	// hid-nintendo maps positionally: physical A = BTN_EAST, physical B =
 +	// BTN_SOUTH (Linux gamepad spec reports by position, not label).
 +	case BTN_EAST: this->dispatch("activate"); return;
@@ -286,8 +296,12 @@ index 0000000..306bc43
 +		if (value == hat) return;
 +		hat = value;
 +
-+		if (code == ABS_HAT0X) function = value < 0 ? "moveLeft" : "moveRight";
-+		else function = value < 0 ? "moveUp" : "moveDown";
++		if (code == ABS_HAT0X) function = value < 0
++		    ? (device.mod ? "brightnessDown" : "moveLeft")
++		    : (device.mod ? "brightnessUp" : "moveRight");
++		else function = value < 0
++		    ? (device.mod ? "volumeUp" : "moveUp")
++		    : (device.mod ? "volumeDown" : "moveDown");
 +		break;
 +	}
 +	case ABS_X:
@@ -369,9 +383,9 @@ index 0000000..f7ca05c
 +//
 +// The capture/screenshot button is a held modifier: mod+Home dispatches
 +// the home function (bare Home is left to games like RetroArch that
-+// capture it), mod+bumpers dispatch workspace prev/next and mod+triggers
-+// jump to a clean desktop — the desktop control layer. The d-pad, left
-+// stick and A/B/X dispatch
++// capture it), mod+bumpers dispatch workspace prev/next, mod+triggers
++// jump to a clean desktop and mod+d-pad drives volume/brightness — the
++// desktop control layer. Bare d-pad, left stick and A/B/X dispatch
 +// moveUp/moveDown/moveLeft/moveRight/activate/focusWindow/back for menu
 +// (the QML side no-ops while the menu is hidden, so in-game controller
 +// input is unaffected). Devices are matched by capability
