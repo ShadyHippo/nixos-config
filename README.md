@@ -81,6 +81,7 @@ entirely — each file below is self-contained.
 | **`machine/vscode.nix`** | VS Code: extensions, user settings, keybindings, icon fix | **Delete or edit** to your taste (remove its flake.nix import). The package installs via home-manager's `programs.vscode`, so removal is complete. |
 | **`machine/resolution.nix`** + **`machine/set-res.sh`** | `$mod+F10/F11/F12` resolution presets (720p/1080p/4K) for the Sharp 4K panel — preset math + sed-generators + the script template | **Delete both** unless you have a panel with a fixed scaler like this one (remove the import in `home/default.nix`). If you keep it: values derive from `theme.nix`, nothing else to edit. |
 | **`machine/gtk4-theme.nix`** | GTK4 gruvbox CSS for non-libadwaita apps (pavucontrol), generated from the palette | **Keep** — it only uses palette values; if you change the palette in `theme.nix` it follows automatically. If you must remove it, delete the import in `home/default.nix` and the `xdg.dataFile` entry that uses it. |
+| **`machine/gtk4-libadwaita.nix`** | libadwaita color overrides (Kooha/GNOME apps) as CSS custom properties, generated from the palette | **Keep** — libadwaita ignores `GTK_THEME`, so this is the only working override; generated from `theme.nix`. If you must remove it, delete the import in `home/default.nix` and the `xdg.configFile."gtk-4.0/gtk.css"` entry that uses it. |
 | **`machine/problue.nix`** | Switch Pro Controller cable pairing: wires in the two patches from `patches/` | **Keep** if you use Switch Pro Controllers; otherwise delete **both** `patches/problue-*` and its `flake.nix` import. See "Bluetooth: ProBlue and the 9260 wedge". |
 | **`machine/wedge.nix`** (+ `machine/unwedge.sh`) | Intel 9260 wedge rescue: a `$mod+BackSpace` rfkill power cycle of the radio (see "Bluetooth: ProBlue and the 9260 wedge") | **Delete** on machines without this radio (remove the `flake.nix` import). |
 
@@ -95,7 +96,8 @@ Per-monitor placement is NOT in `theme.nix`: that's
 > Everything machine-specific + optional lives there. Two import sites matter:
 > **flake.nix** imports `hardware.nix`, `printing.nix`, `fcitx5.nix`,
 > `vscode.nix`, `problue.nix`, `wedge.nix` (remove the line to drop the feature); **home/default.nix**
-> imports `theme.nix`, `resolution.nix`, and `gtk4-theme.nix` (and reads
+> imports `theme.nix`, `resolution.nix`, `gtk4-theme.nix`, and
+> `gtk4-libadwaita.nix` (and reads
 > `identity.nix`). Treat each file as an independent, removable unit — nothing
 > outside `machine/` is machine-tuned. Beware of `machine/resolution.nix`: it
 > looks like a module but is really a script generator with sed-pattern
@@ -249,7 +251,7 @@ split (stock). The resize mode (`$mod+r`) also uses vim keys.
 - `$mod+Shift+e` quits sway (confirmation nag); `$mod+Shift+c` reloads config.
 - Window rules: Signal/Discord → workspace 9, Slack → 8; pavucontrol floats as
   a 2×-scaled popup, Bluejay (Qt6, QT_SCALE_FACTOR 1.5) as a popup anchored
-  near the tray; Dolphin dialogs float.
+  near the tray; Kooha floats (XWayland, GDK_SCALE); Dolphin dialogs float.
 - Bar sits at the **bottom**; focus follows mouse; the cursor never auto-hides.
 
 ## Layout
@@ -267,6 +269,7 @@ machine/                # ← EVERYTHING per-device / per-user (see table above)
   vscode.nix            # VS Code config + extensions
   resolution.nix        # $mod+F10/11/12 presets (generates set-res.sh)
   gtk4-theme.nix        # GTK4 CSS, generated from theme.nix palette
+  gtk4-libadwaita.nix   # libadwaita color overrides (Kooha/GNOME apps)
   set-res.sh            # template read by resolution.nix
   problue.nix           # Switch Pro Controller cable pairing (2 patches)
   wedge.nix             # Intel 9260 Bluetooth wedge rescue (sudoers + package)

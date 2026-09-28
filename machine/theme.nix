@@ -56,10 +56,11 @@
     scale  = 1;               # sway output scale
     qt     = 1.5;             # global QT_SCALE_FACTOR (Dolphin, Moonlight, VLC…)
     gtk    = {
-      # GTK3's Wayland backend ignores GDK_SCALE — pavucontrol is forced onto
-      # XWayland via GDK_BACKEND=x11, where it works. (bluejay is Qt6: the
-      # global QT_SCALE_FACTOR above already scales it.)
-      pavucontrol = 2;        # fallback in pavucontrol-toggle.sh (default = 4K)
+      # GTK's Wayland backend ignores GDK_SCALE — apps that must scale under
+      # sway's scale-1 4K output (pavucontrol, Kooha) are forced onto XWayland
+      # via GDK_BACKEND=x11, where GDK_SCALE works. (Qt6 apps like bluejay
+      # scale via the global QT_SCALE_FACTOR instead.)
+      xwayland = 2;           # fallback in pavucontrol-toggle.sh / kooha-scaled (4K)
     };
     cursor = {
       seat = 64;              # compositor-level cursor px (sway seat)

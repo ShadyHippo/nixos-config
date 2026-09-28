@@ -9,6 +9,11 @@ let
   # none, so one is generated from the palette. NOT cruft (removed once, broke
   # pavucontrol).
   gtk4css = import ../machine/gtk4-theme.nix theme;
+  # libadwaita color overrides for GTK4 libadwaita apps (Kooha, GNOME apps).
+  # libadwaita ignores GTK_THEME, so its palette is re-declared as CSS custom
+  # properties in the USER stylesheet (~/.config/gtk-4.0/gtk.css), which loads
+  # at higher priority than libadwaita's own provider.
+  adwaitaCss = import ../machine/gtk4-libadwaita.nix theme;
   resolution = import ../machine/resolution.nix theme;
 
   # Recolored Bibata cursor theme shared by the sway session and regreet.
@@ -74,7 +79,16 @@ in
     # pavucontrol-toggle.sh; reads the resolution preset SCALE set by set-res.sh.
     (pkgs.writeShellScriptBin "pavucontrol-scaled" ''
       [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
-      exec env GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.pavucontrol}}" pavucontrol
+      exec env GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.xwayland}}" pavucontrol
+    '')
+    # Kooha (GTK4/libadwaita screen recorder). GTK4's Wayland backend ignores
+    # GDK_SCALE, so — like pavucontrol — it runs on XWayland with GDK_SCALE to
+    # match the 4K@scale-1 panel. Reads the resolution-preset SCALE; the desktop
+    # entry below points fuzzel at this wrapper.
+    kooha
+    (pkgs.writeShellScriptBin "kooha-scaled" ''
+      [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
+      exec env GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.xwayland}}" kooha
     '')
     # Bluejay (Qt6/QML Kirigami) needs the QQC2 Desktop Style (org.kde.desktop)
     # in its QML import path, or QtQuickControls falls back to the light Basic
@@ -127,6 +141,25 @@ in
     terminal = false;
     categories = [ "AudioVideo" "Audio" "Mixer" "GTK" "Settings" ];
     settings.Keywords = "pavucontrol;PulseAudio;Microphone;Volume;Mixer;Audio;Settings;";
+  };
+
+  # Kooha: same file id as the package entry → fuzzel launches the scaled
+  # (XWayland) wrapper. DBusActivatable is forced off so launchers actually use
+  # Exec (D-Bus activation would bypass the wrapper's env). Keep the original
+  # Name/Icon/Keywords for searchability.
+  xdg.desktopEntries."io.github.seadve.Kooha" = {
+    name = "Kooha";
+    genericName = "Screen Recorder";
+    comment = "Elegantly record your screen";
+    exec = "kooha-scaled";
+    icon = "io.github.seadve.Kooha";
+    terminal = false;
+    categories = [ "GTK" "GNOME" "Utility" "Recorder" ];
+    settings = {
+      Keywords = "Screencast;Recorder;Screen;Video;";
+      DBusActivatable = "false";
+      StartupNotify = "true";
+    };
   };
 
   # Default applications
@@ -464,7 +497,7 @@ in
         pkill -x '.pavucontrol-wr'
       else
         [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
-        GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.pavucontrol}}" pavucontrol >/dev/null 2>&1 &
+        GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.xwayland}}" pavucontrol >/dev/null 2>&1 &
       fi
     '';
   };
@@ -652,6 +685,12 @@ in
   # via GTK_THEME=gruvbox-dark → ~/.local/share/themes/gruvbox-dark/gtk-4.0/.
   # Don't remove — pavucontrol does not go through gtk3 settings/dconf at all.
   xdg.dataFile."themes/gruvbox-dark/gtk-4.0/gtk.css".text = gtk4css;
+
+  # libadwaita apps (Kooha, GNOME apps) ignore GTK_THEME and paint from their
+  # own stylesheet; the supported override is the USER stylesheet, loaded at
+  # higher priority than libadwaita's provider. libadwaita 1.4+ reads these as
+  # CSS custom properties (not @define-color). Generated from the palette.
+  xdg.configFile."gtk-4.0/gtk.css".text = adwaitaCss;
 
   # Belt-and-suspenders: the gtk module resolves the theme via the user
   # profile (XDG_DATA_DIRS). A ~/.themes copy additionally covers contexts
