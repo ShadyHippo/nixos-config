@@ -593,7 +593,7 @@ in
       "@PAL_ACCENT@" "@FONT@"
       "@ICON_RETRODECK@" "@ICON_MOONLIGHT@" "@ICON_STEAM@" "@ICON_JELLYFIN@"
       "@BIN_FLATPAK@" "@BIN_MOONLIGHT@" "@BIN_STEAM@" "@BIN_JELLYFIN@" "@BIN_SH@" "@SET_RES@"
-      "@BIN_SWAYMSG@" "@WS_CLEAN@" "@WS_LIST@" "@BIN_SWAYOSD@" ]
+      "@BIN_SWAYMSG@" "@WS_CLEAN@" "@WS_LIST@" "@BIN_SWAYOSD@" "@BIN_PLAYERCTL@" ]
     [ pal.bg pal.bgAlt pal.bgDim pal.fg pal.fgDim
       pal.accent theme.font.family
       "${../images/retrodeck.svg}" "${../images/moonlight.svg}" "${../images/steam.svg}"
@@ -605,7 +605,8 @@ in
       "${pkgs.sway}/bin/swaymsg"
       "${config.home.homeDirectory}/.config/sway/scripts/ws-clean.sh"
       "${config.home.homeDirectory}/.config/sway/scripts/ws-list.sh"
-      "${pkgs.swayosd}/bin/swayosd-client" ]
+      "${pkgs.swayosd}/bin/swayosd-client"
+      "${pkgs.playerctl}/bin/playerctl" ]
     (builtins.readFile ./quickshell/shell.qml);
 
   # Accent + legacy prefer-dark key that the `gtk` module does NOT write

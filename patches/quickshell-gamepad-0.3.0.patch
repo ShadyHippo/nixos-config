@@ -15,7 +15,7 @@ new file mode 100644
 index 0000000..306bc43
 --- /dev/null
 +++ b/src/io/gamepadwatcher.cpp
-@@ -0,0 +1,344 @@
+@@ -0,0 +1,355 @@
 +#include "gamepadwatcher.hpp"
 +#include <cerrno>
 +#include <cstring>
@@ -270,10 +270,21 @@ index 0000000..306bc43
 +		return;
 +	// hid-nintendo maps positionally: physical A = BTN_EAST, physical B =
 +	// BTN_SOUTH (Linux gamepad spec reports by position, not label).
-+	case BTN_EAST: this->dispatch("activate"); return;
++	case BTN_EAST:
++		// mod+A is media transport; bare A activates the menu selection.
++		this->dispatch(device.mod ? "mediaPlay" : "activate");
++		return;
 +	case BTN_SOUTH: this->dispatch("back"); return;
 +	// Physical X: close the selected window (menu stays open).
 +	case BTN_NORTH: this->dispatch("closeApp"); return;
++	// Physical Plus/Minus: media transport while mod is held. Bare presses
++	// fall to the default case and are left to the running game.
++	case BTN_START:
++		if (device.mod) this->dispatch("mediaNext");
++		return;
++	case BTN_SELECT:
++		if (device.mod) this->dispatch("mediaPrev");
++		return;
 +	default:
 +		qCDebug(logGamepad) << "Unhandled key" << code << value;
 +		return;
@@ -365,7 +376,7 @@ new file mode 100644
 index 0000000..f7ca05c
 --- /dev/null
 +++ b/src/io/gamepadwatcher.hpp
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,73 @@
 +#pragma once
 +
 +#include <qfilesystemwatcher.h>
@@ -384,8 +395,9 @@ index 0000000..f7ca05c
 +// The capture/screenshot button is a held modifier: mod+Home dispatches
 +// the home function (bare Home is left to games like RetroArch that
 +// capture it), mod+bumpers dispatch workspace prev/next, mod+triggers
-+// jump to a clean desktop and mod+d-pad drives volume/brightness — the
-+// desktop control layer. Bare d-pad, left stick and A/B/X dispatch
++// jump to a clean desktop, mod+d-pad drives volume/brightness and mod+A/
++// Plus/Minus drives media transport — the desktop control layer. Bare
++// d-pad, left stick, A/B/X and Plus/Minus dispatch
 +// moveUp/moveDown/moveLeft/moveRight/activate/closeApp/back for menu
 +// (the QML side no-ops while the menu is hidden, so in-game controller
 +// input is unaffected). Devices are matched by capability

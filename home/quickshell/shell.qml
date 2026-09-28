@@ -15,7 +15,8 @@
 //            it and dismisses the menu; X closes the selected window and
 //            leaves the menu open; B closes the menu — dispatched in-process
 //            by the gamepad patch. Capture (the mod button) + d-pad drives
-//            volume (up/down) and brightness (right/left) desktop-wide.
+//            volume (up/down) and brightness (right/left) desktop-wide,
+//            and mod+A / Plus / Minus drives media play-pause / next / prev.
 //            The menu lists windows on the focused
 //            workspace (ws-list.sh scan, refreshed while open).
 import QtQuick
@@ -176,6 +177,12 @@ ShellRoot {
     function volumeDown(): void { Quickshell.execDetached(["@BIN_SWAYOSD@", "--output-volume", "lower"]) }
     function brightnessUp(): void { Quickshell.execDetached(["@BIN_SWAYOSD@", "--brightness", "raise"]) }
     function brightnessDown(): void { Quickshell.execDetached(["@BIN_SWAYOSD@", "--brightness", "lower", "--min-brightness", "1"]) }
+
+    // Media transport: capture (mod) + A / Plus / Minus. Mirrors the XF86
+    // playerctl binds in home/sway/config, global (no shown-guard).
+    function mediaPlay(): void { Quickshell.execDetached(["@BIN_PLAYERCTL@", "play-pause"]) }
+    function mediaNext(): void { Quickshell.execDetached(["@BIN_PLAYERCTL@", "next"]) }
+    function mediaPrev(): void { Quickshell.execDetached(["@BIN_PLAYERCTL@", "previous"]) }
   }
 
   PanelWindow {
