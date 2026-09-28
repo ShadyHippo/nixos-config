@@ -1,0 +1,212 @@
+diff --git a/native/gamepadSwap.js b/native/gamepadSwap.js
+new file mode 100644
+index 0000000..d322e59
+--- /dev/null
++++ b/native/gamepadSwap.js
+@@ -0,0 +1,93 @@
++// Swap A/B and X/Y face buttons (jellyfin-desktop#958). Nintendo-style
++// controllers label the four face-button positions opposite to Xbox; when the
++// "swap_abxy" client setting is on:
++//  1. navigator.getGamepads() returns pads with buttons 0/1 and 2/3 swapped,
++//     so jellyfin-web's gamepad handler sees Nintendo-correct positions.
++//  2. A checkbox is grafted onto the web client's Controls settings page,
++//     directly under "Enable Gamepad" — the only place a user would look.
++(function() {
++    const SWAP_SECTION = 'gamepad settings';
++    const SWAP_KEY = 'swap_abxy';
++    const ROW_ID = 'jfdSwapAbxyRow';
++
++    const swapSetting = () => {
++        const info = window.jmpInfo;
++        return info && info.settings && info.settings[SWAP_SECTION];
++    };
++
++    // ---- Gamepad API boundary ------------------------------------------------
++    const nativeGetGamepads = navigator.getGamepads ? navigator.getGamepads.bind(navigator) : null;
++    if (nativeGetGamepads) {
++        navigator.getGamepads = function() {
++            const pads = nativeGetGamepads();
++            if (!pads) return pads;
++
++            const settings = swapSetting();
++            if (!settings || !settings[SWAP_KEY]) return pads;
++
++            const out = [];
++            for (let i = 0; i < pads.length; i++) {
++                const pad = pads[i];
++                if (!pad) {
++                    out.push(pad);
++                    continue;
++                }
++                const buttons = pad.buttons.slice();
++                [buttons[0], buttons[1]] = [buttons[1], buttons[0]];
++                [buttons[2], buttons[3]] = [buttons[3], buttons[2]];
++                out.push(new Proxy(pad, {
++                    get(target, prop) {
++                        if (prop === 'buttons') return buttons;
++                        const value = target[prop];
++                        return typeof value === 'function' ? value.bind(target) : value;
++                    }
++                }));
++            }
++            return out;
++        };
++    }
++
++    // ---- Controls-page graft -------------------------------------------------
++    // The Controls page is served by jellyfin-web (the server's copy), so the
++    // client cannot add a field upstream — inject one instead, cloning the
++    // page's own checkboxContainer markup so it renders natively.
++    const injectSwapRow = () => {
++        const page = document.getElementById('controlsPreferencesPage');
++        if (!page) return;
++        const anchor = page.querySelector('.enableGamepadContainer');
++        if (!anchor) return;
++        if (document.getElementById(ROW_ID)) return;
++
++        const row = document.createElement('div');
++        row.className = 'checkboxContainer';
++        row.id = ROW_ID;
++
++        // Clone the page's own label instead of createElement({is}):
++        // webcomponents.js patches document.createElement and throws on the
++        // options argument. The clone keeps the upgraded emby-checkbox
++        // structure, so it renders identically to Enable Gamepad.
++        const label = anchor.querySelector('label').cloneNode(true);
++        const input = label.querySelector('input');
++        input.className = 'chkSwapAbxy';
++        input.name = '';
++        const settings = swapSetting();
++        input.checked = !!(settings && settings[SWAP_KEY]);
++        input.addEventListener('change', () => {
++            const current = swapSetting();
++            if (current) current[SWAP_KEY] = input.checked;
++        });
++        label.querySelector('span').textContent = 'Swap A/B and X/Y gamepad buttons';
++
++        row.appendChild(label);
++        anchor.insertAdjacentElement('afterend', row);
++    };
++
++    // Runs at DocumentCreation — document.documentElement does NOT exist yet,
++    // but the document node always does; the row injects once the controls
++    // page is parsed into it.
++    new MutationObserver(injectSwapRow).observe(document, {
++        childList: true,
++        subtree: true
++    });
++    injectSwapRow();
++})();
+diff --git a/native/nativeshell.js b/native/nativeshell.js
+index abfba22..193870b 100644
+--- a/native/nativeshell.js
++++ b/native/nativeshell.js
+@@ -243,6 +243,15 @@ if (settingsDescriptionsFromStorage) {
+     jmpInfo.settingsDescriptions = JSON.parse(settingsDescriptionsFromStorage);
+ }
+ 
++// Sections added after this session's settings snapshot must still land in
++// rawSettings: the setter loop below only walks rawSettings keys, and a
++// missing section would mean its checkboxes silently stop persisting.
++for (const sectionKey of Object.keys(jmpInfo.settings)) {
++    if (!(sectionKey in rawSettings)) {
++        rawSettings[sectionKey] = jmpInfo.settings[sectionKey];
++    }
++}
++
+ jmpInfo.settingsDescriptionsUpdate = [];
+ jmpInfo.settingsUpdate = [];
+ window.apiPromise = createApi();
+diff --git a/resources/settings/settings_description.json b/resources/settings/settings_description.json
+index 644fb01..4353784 100644
+--- a/resources/settings/settings_description.json
++++ b/resources/settings/settings_description.json
+@@ -694,5 +694,17 @@
+         "default": ""
+       }
+     ]
++  },
++  {
++    "section": "gamepad settings",
++    "order": 7,
++    "hidden": true,
++    "values": [
++      {
++        "value": "swap_abxy",
++        "display_name": "Swap A/B and X/Y gamepad buttons",
++        "default": false
++      }
++    ]
+   }
+ ]
+diff --git a/src/input/InputComponent.cpp b/src/input/InputComponent.cpp
+index 9bb72b8..b8f49b0 100644
+--- a/src/input/InputComponent.cpp
++++ b/src/input/InputComponent.cpp
+@@ -159,6 +159,30 @@ void InputComponent::handleAction(const QString& action)
+   }
+ }
+ 
++///////////////////////////////////////////////////////////////////////////////////////////////////
++// Nintendo-style controllers label the face buttons the opposite way around
++// from Xbox (A/B and X/Y on swapped positions — jellyfin-desktop#958). With
++// the "Swap A/B and X/Y gamepad buttons" client setting on, swap the raw SDL
++// button indices before they hit the inputmaps.
++static QString swappedFaceButton(const QString &keycode)
++{
++  if (!keycode.startsWith("KEY_BUTTON_"))
++    return keycode;
++
++  if (!SettingsComponent::Get().value(SETTINGS_SECTION_GAMEPAD, "swap_abxy").toBool())
++    return keycode;
++
++  bool ok = false;
++  int button = keycode.mid(11).toInt(&ok);
++  if (!ok)
++    return keycode;
++  if (button == 0 || button == 1)
++    return QString("KEY_BUTTON_%1").arg(1 - button);
++  if (button == 2 || button == 3)
++    return QString("KEY_BUTTON_%1").arg(5 - button);
++  return keycode;
++}
++
+ ///////////////////////////////////////////////////////////////////////////////////////////////////
+ void InputComponent::remapInput(const QString &source, const QString &keycode, InputBase::InputkeyState keyState)
+ {
+@@ -192,7 +216,7 @@ void InputComponent::remapInput(const QString &source, const QString &keycode, I
+   QStringList queuedActions;
+   m_autoRepeatActions.clear();
+ 
+-  auto actions = m_mappings->mapToAction(source, keycode);
++  auto actions = m_mappings->mapToAction(source, swappedFaceButton(keycode));
+   for (const auto& action : actions)
+   {
+     if (action.typeId() == QMetaType::QString)
+diff --git a/src/settings/SettingsComponent.h b/src/settings/SettingsComponent.h
+index f519422..9ebfb7c 100644
+--- a/src/settings/SettingsComponent.h
++++ b/src/settings/SettingsComponent.h
+@@ -18,6 +18,7 @@
+ #define SETTINGS_SECTION_CEC "cec"
+ #define SETTINGS_SECTION_APPLEREMOTE "appleremote"
+ #define SETTINGS_SECTION_OTHER "other"
++#define SETTINGS_SECTION_GAMEPAD "gamepad settings"
+ 
+ #define AUDIO_DEVICE_TYPE_BASIC "basic"
+ #define AUDIO_DEVICE_TYPE_SPDIF "spdif"
+diff --git a/src/system/SystemComponent.cpp b/src/system/SystemComponent.cpp
+index 8f6183b..6e74cd0 100644
+--- a/src/system/SystemComponent.cpp
++++ b/src/system/SystemComponent.cpp
+@@ -598,7 +598,9 @@ QString SystemComponent::getNativeShellScript()
+     ":/web-client/extension/inputPlugin.js",
+     ":/web-client/extension/updatePlugin.js",
+     ":/web-client/extension/connectivityHelper.js",
+-    ":/web-client/extension/nativeshell.js"
++    ":/web-client/extension/nativeshell.js",
++    // After nativeshell.js — reads jmpInfo.settings on every getGamepads().
++    ":/web-client/extension/gamepadSwap.js"
+   };
+ 
+   cachedScript = jmpInfoDeclaration;

@@ -1,0 +1,53 @@
+diff --git a/src/ui/webview.qml b/src/ui/webview.qml
+index 9b2a50e..3323e29 100644
+--- a/src/ui/webview.qml
++++ b/src/ui/webview.qml
+@@ -23,6 +23,9 @@ Window
+   property string debugInfo: ""
+   property string videoInfo: ""
+   property string webUrl: ""
++  // Set while the last completed load was the qrc find-webclient page, so
++  // the first server-web load after it can be detected (see web.onLoadingChanged).
++  property bool webWasQrc: false
+ 
+   signal reloadWebClient()
+ 
+@@ -257,7 +260,12 @@ Window
+         worldId: WebEngineScript.MainWorld
+       }
+ 
+-      web.userScripts.collection = [ nativeshell ];
++      // Profile-level, not view-level: the qrc find-webclient → server web
++      // cross-origin navigation moves to a new renderer process, and a
++      // view-registered script is not reliably delivered there — first load
++      // came up without window.NativeShell (no mpv player, no client
++      // settings, HTML5 fallback). Upstream fix cabddc6, not in v2.0.0.
++      web.profile.userScripts.collection = [ nativeshell ];
+     }
+ 
+     onLoadingChanged: function(loadingInfo)
+@@ -273,6 +281,24 @@ Window
+       else if (loadingInfo.status == WebEngineView.LoadSucceededStatus)
+       {
+         console.log("WebEngineLoadRequest success: " + loadingInfo.url);
++
++        var loadedUrl = loadingInfo.url.toString();
++        if (loadedUrl.indexOf("qrc:") === 0)
++        {
++          mainWindow.webWasQrc = true;
++        }
++        else if (mainWindow.webWasQrc)
++        {
++          // Qt 6.11.1 does not deliver even profile-level user scripts across
++          // the qrc → server cross-origin navigation, so this first server
++          // load has no window.NativeShell: no native mpv player (HTML5
++          // fallback asks for HEVC transcodes), no client settings. A
++          // same-origin reload injects reliably, so redo this load once.
++          // webWasQrc is cleared first, so the reload cannot re-trigger it.
++          mainWindow.webWasQrc = false;
++          console.log("First server load lacks injected scripts, reloading once");
++          Qt.callLater(function() { web.reload(); });
++        }
+       }
+       else if (loadingInfo.status == WebEngineView.LoadFailedStatus)
+       {

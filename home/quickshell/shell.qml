@@ -40,6 +40,9 @@ ShellRoot {
     { name: "Steam", hint: "Big Picture",
       icon: "file://@ICON_STEAM@",
       cmd: ["@BIN_STEAM@", "steam://open/bigpicture"] },
+    { name: "Jellyfin", hint: "movies & TV",
+      icon: "file://@ICON_JELLYFIN@",
+      cmd: ["@BIN_JELLYFIN@"] },
   ]
 
   readonly property var presets: [
@@ -217,11 +220,17 @@ ShellRoot {
         anchors.centerIn: parent
         spacing: 44
 
-        // ── The three launchers ──
+        // ── The launchers ──
         RowLayout {
           id: launchersRow
           Layout.alignment: Qt.AlignHCenter
           spacing: 32
+          // Row-budgeted tiles: 3×340 + 2×32 = 1084px was the width the
+          // fit-to-window card scale was tuned at. Hold that total for any
+          // chip count (4 chips → 247px each) so a new launcher never shrinks
+          // the whole menu — same card size as before, still centered.
+          readonly property real tileW:
+            Math.min(340, (1084 - spacing * (root.launchers.length - 1)) / root.launchers.length)
 
           Repeater {
             model: root.launchers
@@ -230,7 +239,7 @@ ShellRoot {
               required property int index
               required property var modelData
 
-              Layout.preferredWidth: 340
+              Layout.preferredWidth: launchersRow.tileW
               Layout.preferredHeight: 360
               radius: 16
               color: "@PAL_BG@"
@@ -252,12 +261,14 @@ ShellRoot {
                 }
                 Text {
                   Layout.alignment: Qt.AlignHCenter
+                  Layout.maximumWidth: launchersRow.tileW - 24
                   text: modelData.name
                   color: "@PAL_FG@"
                   font { family: "@FONT@"; pixelSize: 30; bold: true }
                 }
                 Text {
                   Layout.alignment: Qt.AlignHCenter
+                  Layout.maximumWidth: launchersRow.tileW - 24
                   text: modelData.hint
                   color: "@PAL_FGDIM@"
                   font { family: "@FONT@"; pixelSize: 18 }

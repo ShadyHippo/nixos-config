@@ -13,6 +13,26 @@ let
 
   # Recolored Bibata cursor theme shared by the sway session and regreet.
   recoloredCursors = import ./cursor/theme.nix { inherit pkgs; colors = theme.palette; };
+
+  # Patched Jellyfin desktop client — SINGLE source of truth: used both in
+  # home.packages and for the quickshell chip's @BIN_JELLYFIN@ token below.
+  # (Referencing pkgs.jellyfin-desktop for the token instead silently launched
+  # the STOCK client from the menu: no swap checkbox, HTML5 playback instead
+  # of mpv, and its settings writer then dropped the hidden "gamepad settings"
+  # section from the conf — i.e. the toggle appeared to be forgotten.)
+  jellyfinClient =
+    (pkgs.jellyfin-desktop.override { stdenv = pkgs.ccacheStdenv; }).overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [
+        ../patches/jellyfin-desktop-2.0.0-injection-race.patch
+        ../patches/jellyfin-desktop-2.0.0-gamepad-swap.patch
+      ];
+      # Qt keys the QML disk cache by source URL, not content: a .qmlc
+      # compiled from an earlier build silently runs instead of patched
+      # webview.qml (this masked every webview edit during testing until the
+      # cache was wiped). Compile from source at startup — it is one file,
+      # a few ms — so patch revisions can never be shadowed by stale cache.
+      qtWrapperArgs = (old.qtWrapperArgs or [ ]) ++ [ "--set QML_DISABLE_DISK_CACHE 1" ];
+    });
 in
 {
   # Runtime resolution presets ($mod+F10/11/12) — self-contained in machine/.
@@ -42,6 +62,12 @@ in
     imagemagick            # convert (required by scripts/build_db.py)
     libwebp                # cwebp (required by scripts/build_db.py)
     kdePackages.dolphin    # file manager
+    # Official Jellyfin desktop client (Qt6 + libmpv) — the patched build
+    # defined in the let block above (injection-race + #958 A/B swap graft;
+    # details there). Gamepad navigation itself is jellyfin-web's TV display
+    # mode driven by the client's own SDL input — one-time setup:
+    # Settings → Display → TV, Controls → Gamepad.
+    jellyfinClient
     pavucontrol            # per-app volume (XWayland wrapper via launch script)
     # Fuzzel/app-menu launches hit the package .desktop (plain `pavucontrol`),
     # losing the GDK_SCALE/XWayland env → unscaled native window. Same env as
@@ -565,14 +591,16 @@ in
   xdg.configFile."quickshell/shell.qml".text = builtins.replaceStrings
     [ "@PAL_BG@" "@PAL_BGALT@" "@PAL_BGDIM@" "@PAL_FG@" "@PAL_FGDIM@"
       "@PAL_ACCENT@" "@FONT@"
-      "@ICON_RETRODECK@" "@ICON_MOONLIGHT@" "@ICON_STEAM@"
-      "@BIN_FLATPAK@" "@BIN_MOONLIGHT@" "@BIN_STEAM@" "@BIN_SH@" "@SET_RES@"
+      "@ICON_RETRODECK@" "@ICON_MOONLIGHT@" "@ICON_STEAM@" "@ICON_JELLYFIN@"
+      "@BIN_FLATPAK@" "@BIN_MOONLIGHT@" "@BIN_STEAM@" "@BIN_JELLYFIN@" "@BIN_SH@" "@SET_RES@"
       "@BIN_SWAYMSG@" "@WS_CLEAN@" "@WS_LIST@" ]
     [ pal.bg pal.bgAlt pal.bgDim pal.fg pal.fgDim
       pal.accent theme.font.family
       "${../images/retrodeck.svg}" "${../images/moonlight.svg}" "${../images/steam.svg}"
+      "${../images/jellyfin.svg}"
       "${pkgs.flatpak}/bin/flatpak" "${pkgs.moonlight-qt}/bin/moonlight"
-      "${pkgs.steam}/bin/steam" "${pkgs.bash}/bin/bash"
+      "${pkgs.steam}/bin/steam" "${jellyfinClient}/bin/jellyfin-desktop"
+      "${pkgs.bash}/bin/bash"
       "${config.home.homeDirectory}/.config/sway/scripts/set-res.sh"
       "${pkgs.sway}/bin/swaymsg"
       "${config.home.homeDirectory}/.config/sway/scripts/ws-clean.sh"
