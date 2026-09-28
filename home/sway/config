@@ -84,12 +84,18 @@ exec qs -n
 # ---------------------------------------------------------------------------
 # Screenshots — clipboard only, Windows-snipping-tool style
 #   PrintScreen        whole screen -> clipboard
+#   Alt+PrintScreen    whole screen, 1/2 size (4K -> 1080p) -> clipboard
 #   Ctrl+PrintScreen   focused window -> clipboard
+#   Ctrl+Alt+PrintScr  focused window, 1/2 size -> clipboard
 #   $mod+Shift+s       snip tool: rectangle select with LIVE PIXEL MEASUREMENTS
+#   $mod+Alt+Shift+s   same snip, but downscaled to 1/2 size -> clipboard
 # ---------------------------------------------------------------------------
 bindsym Print               exec ~/.config/sway/scripts/screenshot.sh full
+bindsym Alt+Print           exec ~/.config/sway/scripts/screenshot.sh full-half
 bindsym Ctrl+Print          exec ~/.config/sway/scripts/screenshot.sh window
+bindsym Ctrl+Alt+Print      exec ~/.config/sway/scripts/screenshot.sh window-half
 bindsym $mod+Shift+s        exec ~/.config/sway/scripts/screenshot.sh snip
+bindsym $mod+Alt+Shift+s    exec ~/.config/sway/scripts/screenshot.sh snip-half
 
 # Resolution presets (game streaming / native play on the Intel GPU)
 bindsym $mod+F10 exec ~/.config/sway/scripts/set-res.sh 720     # native play

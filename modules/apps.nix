@@ -22,6 +22,17 @@
       '';
     }))
 
+    # capture & streaming — OBS alongside Kooha (home/default.nix). Wrapped
+    # with input-overlay so gamepad presses can be burned into the recording
+    # for the quickshell#1189 demo, instead of a side-by-side hardwares-tester
+    # window the menu then covers. Screen capture goes through the PipeWire
+    # portal (xdg.portal.wlr, modules/desktop.nix); input-overlay reads pads
+    # via SDL — its libuiohook keyboard/mouse backend is X11-only — so map
+    # buttons in the plugin's own editor. Qt6 scales via global QT_SCALE_FACTOR.
+    (wrapOBS {
+      plugins = with obs-studio-plugins; [ input-overlay ];
+    })
+
     # disks (GNOME left behind)
     gparted smartmontools nvme-cli gdu
 

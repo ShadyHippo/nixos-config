@@ -63,6 +63,19 @@ in
   xdg.portal = {
     enable = true;
     wlr.enable = true;
+    # Why the chooser is pinned: xdpw's default screenshare chooser is "probe the
+    # first of slurp/wmenu/wofi/rofi/bemenu/mew/fuzzel found in PATH". But the
+    # daemon is a systemd --user service with NixOS' minimal user PATH
+    # (coreutils/findutils/grep/sed/systemd + slurp/grim from the wrapper), and
+    # fuzzel only reaches the *sway session* PATH via programs.sway.extraPackages
+    # — so every candidate 127s out, SelectSources returns "denied or cancelled
+    # by user", and the capture is black in OBS (and Kooha once its stored
+    # restore token expires). Absolute path, dmenu contract, same invocation xdpw
+    # itself would use. See xdg-desktop-portal-wlr(5), SCREENCAST OPTIONS.
+    wlr.settings.screencast = {
+      chooser_type = "dmenu";
+      chooser_cmd = "${pkgs.fuzzel}/bin/fuzzel -d -l 10 -p 'Select a source to share:'";
+    };
     extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
   };
 

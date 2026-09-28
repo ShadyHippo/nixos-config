@@ -234,8 +234,11 @@ font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
 | Key | Action |
 |---|---|
 | `Print` | whole screen → clipboard |
+| `Alt+Print` | whole screen, downscaled to ½ (4K → 1080p) → clipboard |
 | `Ctrl+Print` | focused window → clipboard |
+| `Ctrl+Alt+Print` | focused window, downscaled to ½ → clipboard |
 | `$mod+Shift+s` | snip: rectangle select with **live pixel measurements** |
+| `$mod+Alt+Shift+s` | same snip, downscaled to ½ (e.g. 4K region → 1080p) |
 
 ### Focus, move & splits — vim directions
 
