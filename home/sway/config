@@ -234,13 +234,24 @@ for_window [title="Qalculate!"] floating enable
 for_window [app_id="(?i)pavucontrol"] floating enable
 for_window [class="(?i)pavucontrol"] floating enable
 for_window [app_id="(?i)io.github.ebonjaeger.bluejay"] floating enable
-# Kooha (GTK4/libadwaita screen recorder, forced XWayland → class + app_id):
-# float it — small utility window, never tiled.
+# Kooha (GTK4/libadwaita screen recorder). kooha-scaled forces GDK_BACKEND=x11,
+# so the mapped window is XWayland and exposes NO app_id — only an X11
+# WM_CLASS, which GTK derives from the *binary* name ("kooha"), NOT the
+# Wayland/desktop-file id. Measured on this machine: app_id=null, class="kooha",
+# so the old [class="io.github.seadve.kooha"] rule never matched and it tiled.
+# Match both ids so a native-Wayland launch still floats too.
 for_window [app_id="(?i)io.github.seadve.kooha"] floating enable
-for_window [class="(?i)io.github.seadve.kooha"] floating enable
+for_window [class="(?i)(^kooha$|io.github.seadve.kooha)"] floating enable
 # EasyEffects (GTK3 audio effects, native Wayland): float it — it's a settings
 # panel, not a tiling app. Default size/position is fine.
 for_window [app_id="(?i)org.kde.easyeffects"] floating enable
+# Moonlight: keep the launcher windowed (its title is exactly "Moonlight", and
+# the app_id matches the desktop file id), but force the STREAM view fullscreen.
+# On Wayland Moonlight's "Fullscreen" display mode uses SDL_WINDOW_FULLSCREEN
+# (exclusive/modesetting), which does not take on wlroots — SDL recreates the
+# window during decoder/renderer init and the pending fullscreen state is lost,
+# so the stream opens tiled. The stream window title is "<host> - Moonlight".
+for_window [title="(?i).+ - moonlight$"] fullscreen enable
 # Dolphin (KDE, native Wayland): its confirm/progress dialogs (Delete, Copying,
 # Moving, Extracting...) are xdg_toplevel windows just like the main window -
 # Wayland exposes no window role/type (window_role/window_type are XWayland-only
