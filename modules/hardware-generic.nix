@@ -15,26 +15,13 @@
   # ---- Bluetooth -------------------------------------------------------------
   hardware.bluetooth = {
     enable = true;
-    powerOnBoot = true;   # battery; toggle with rfkill or bluejay
+    powerOnBoot = true;   # on at boot; toggle at runtime with rfkill or bluejay
     # Force BlueZ to serve HID devices from userspace (via uhid) instead of
     # feeding the kernel's HIDP stack. Required for the disable_ertm fix below
     # to actually govern connection behaviour (writes /etc/bluetooth/input.conf).
     input.General.UserspaceHID = true;
-    # Nintendo's 2017 (BR/EDR) controllers memcmp the *host* device name on
-    # connect. Unless it begins with "Nintendo" they fall back to a low-power
-    # generic profile that leans on sniff, which costs latency and, under load,
-    # packets. Prefixed with this host's name -> "Nintendo hippo-xps".
-    #
-    # There is no upstream fix yet, only a feature request (bluez#1797) asking
-    # for a quirk; BlueZ's own answer there is to set the adapter name. Doing it
-    # via main.conf means bluetoothd applies it on power-on, so it needs no
-    # boot-time helper (the adapter is down at boot: powerOnBoot=false above).
-    #
-    # Still matches the "Nintendo" case (non-Switch profile, Active mode) and
-    # deliberately does NOT match the "Nintendo Switch" case: that one switches
-    # the controller to its native 0x3F report format, whereas hid_nintendo
-    # explicitly requests 0x30 (JC_SUBCMD_SET_REPORT_MODE).
-    settings.General.Name = "Nintendo ${config.networking.hostName}";
+    # (The "Nintendo <hostname>" adapter rename lives in machine/problue.nix —
+    # it is Switch-controller-specific, so it follows that feature module.)
   };
 
   # disable_ertm: the kernel L2CAP stack's ERTM mode is flaky with the Switch
@@ -53,13 +40,8 @@
   # firmware-managed and unaffected, and system sleep suspends the device
   # regardless. Wi-Fi is PCIe/iwlwifi — untouched by this.
   boot.kernelParams = [ "bluetooth.disable_ertm=1" "btusb.enable_autosuspend=0" ];
-
-  # The kernel param alone is not sufficient: the device still ends up with
-  # control=auto and runtime-suspends (verified live). Pin the device node
-  # directly; "on" = pm_runtime_forbid, the link stays in L0 while awake.
-  services.udev.extraRules = ''
-    ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="8087", ATTR{idProduct}=="0025", ATTR{power/control}="on"
-  '';
+  # (The matching 8087:0025 udev power/control pin lives in machine/wedge.nix —
+  # it is a property of THIS machine's Intel 9260 radio, like the wedge itself.)
 
   # ---- Nintendo Switch controllers (Joy-Con / Pro) ---------------------------
   # hid_nintendo: kernel's native driver for Switch controllers.

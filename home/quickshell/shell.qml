@@ -1,6 +1,6 @@
 // Game launcher menu (QuickShell default config → ~/.config/quickshell/shell.qml).
-// @TOKEN@ placeholders are substituted from machine/theme.nix, images/*.svg and
-// package paths in home/default.nix (the waybar @TOKEN@ pattern). Edit THERE,
+// Token placeholders are substituted from machine/theme.nix, images/*.svg and
+// package paths in home/quickshell-menu.nix (via lib/tokens.nix). Edit THERE,
 // rebuild — HM overwrites the installed file. For live iteration, edit the
 // installed ~/.config/quickshell/shell.qml directly (qs hot-reloads on save),
 // then port the diff back into this file and rebuild.
@@ -145,9 +145,14 @@ ShellRoot {
   // gamepad move*/activate/back dispatch below. Signature types are MANDATORY
   // — qs drops untyped handler functions (and a function named `show`
   // collides with the `qs ipc show` listing command, hence `open`).
+  //
+  // target and the Home function name are substituted from
+  // home/quickshell-menu.nix (@GAMEPAD_*@ tokens) and mirrored into the
+  // QS_GAMEPAD_* env vars the patched binary reads — single source of truth
+  // there; do not rename here.
   IpcHandler {
-    target: "menu"
-    function toggle(): void { root.shown = !root.shown }
+    target: "@GAMEPAD_IPC_TARGET@"
+    function @GAMEPAD_HOME_FUNCTION@(): void { root.shown = !root.shown }
     function open(): void { root.shown = true }
     function hide(): void { root.shown = false }
     function getShown(): bool { return root.shown }

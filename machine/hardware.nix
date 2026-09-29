@@ -11,6 +11,20 @@
   # NVIDIA GTX 1050 Ti: permanently disabled — Pascal can't do fine-grained RTD3
   # with the proprietary driver on this model (suspend lockups). Blacklisted in
   # modules/base.nix; PCIe runtime PM parks the card (D3hot, ~0.1–0.5 W aux rail).
+  # NVIDIA GTX 1050 Ti: permanently disabled — Pascal can't do fine-grained RTD3
+  # with the proprietary driver on this model (suspend lockups). Blacklisted
+  # here (machine file — this is XPS-9570-specific, moved out of modules/base.nix
+  # so the "nothing outside machine/ is machine-tuned" claim holds); PCIe
+  # runtime PM parks the card (D3hot, ~0.1–0.5 W aux rail).
+  boot.blacklistedKernelModules = [
+    "nouveau" "rivafb" "nvidiafb" "rivatv" "nv"
+    "nvidia" "nvidia-drm" "nvidia-modeset" "nvidia-uvm"
+  ];
+  # Lock modprobe out of loading nvidia even by alias/probe.
+  boot.extraModprobeConfig = ''
+    install nvidia /bin/false
+  '';
+
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{power/control}="auto"
   '';

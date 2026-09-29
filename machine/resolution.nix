@@ -3,7 +3,7 @@
 #
 # MACHINE-SPECIFIC: tied to the Sharp 4K panel's fixed-function scaler and the
 # iGPU's modeset limitations. Delete this file, machine/set-res.sh, and the
-# import in home/default.nix when moving to different hardware.
+# import in home/session.nix when moving to different hardware.
 #
 # The panel exposes only ONE EDID mode (3840×2160); sub-4K modes composite on
 # the iGPU and the fixed scaler upscales to native. Every framebuffer px is 2
@@ -147,21 +147,28 @@ let
   # signs must be escaped first ($a → the sed append command would otherwise
   # be expanded by bash as the empty variable $a):
   esc = s: builtins.replaceStrings [ "\"" "$" ] [ "\\\"" "\\$" ] s;
+  # Token attrset for lib/tokens.nix (shared @TOKEN@ substitution — it fails
+  # evaluation if any @token@ survives in the template, so a renamed
+  # placeholder here or in set-res.sh can no longer ship as literal text).
   tok = k: p: {
-    o = [ "@FACTOR_${k}@" "@SCALE_${k}@" "@ACCEL_${k}@" "@GTK_FONT_${k}@" "@CURSOR_${k}@"
-          "@SWAY_${k}@" "@WB_${k}@" "@MAKO_${k}@" "@GHOST_${k}@" "@OSD_${k}@" ];
-    n = [ p.factor (toString p.gtkScale) p.accel (toString p.fonts.gtk) (toString p.cursorSeat)
-          (esc (mkSway p)) (esc (mkWaybar p)) (esc (mkMako p)) (esc (mkGhost p)) (esc (mkOsd p)) ];
+    "FACTOR_${k}" = p.factor;
+    "SCALE_${k}" = toString p.gtkScale;
+    "ACCEL_${k}" = p.accel;
+    "GTK_FONT_${k}" = toString p.fonts.gtk;
+    "CURSOR_${k}" = toString p.cursorSeat;
+    "SWAY_${k}" = esc (mkSway p);
+    "WB_${k}" = esc (mkWaybar p);
+    "MAKO_${k}" = esc (mkMako p);
+    "GHOST_${k}" = esc (mkGhost p);
+    "OSD_${k}" = esc (mkOsd p);
   };
-  all = map (k: tok k presets.${k}) [ "720" "1080" "4k" ];
+  all = builtins.foldl' (acc: k: acc // tok k presets.${k}) { } [ "720" "1080" "4k" ];
+  tokens = import ../lib/tokens.nix;
 in
 # Returns the xdg.configFile attrset to install the generated script.
 {
   xdg.configFile."sway/scripts/set-res.sh" = {
     executable = true;
-    text = builtins.replaceStrings
-      (builtins.concatLists (map (x: x.o) all))
-      (builtins.concatLists (map (x: x.n) all))
-      (builtins.readFile ./set-res.sh);
+    text = tokens "machine/set-res.sh" all (builtins.readFile ./set-res.sh);
   };
 }

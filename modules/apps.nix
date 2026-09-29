@@ -3,6 +3,8 @@
 {
   # Result of the app-audit poll. Everything selected lives here; everything
   # unselected is one line away if you ever want it back.
+  # (OBS + input-overlay moved to machine/problue.nix — it is wiring for the
+  # quickshell#1189 gamepad demo, i.e. machine-specific.)
   environment.systemPackages = with pkgs; [
     # communication & streaming
     signal-desktop discord vivaldi moonlight-qt
@@ -22,16 +24,9 @@
       '';
     }))
 
-    # capture & streaming — OBS alongside Kooha (home/default.nix). Wrapped
-    # with input-overlay so gamepad presses can be burned into the recording
-    # for the quickshell#1189 demo, instead of a side-by-side hardwares-tester
-    # window the menu then covers. Screen capture goes through the PipeWire
-    # portal (xdg.portal.wlr, modules/desktop.nix); input-overlay reads pads
-    # via SDL — its libuiohook keyboard/mouse backend is X11-only — so map
-    # buttons in the plugin's own editor. Qt6 scales via global QT_SCALE_FACTOR.
-    (wrapOBS {
-      plugins = with obs-studio-plugins; [ input-overlay ];
-    })
+    # capture & streaming — OBS + input-overlay live in machine/problue.nix
+    # (they exist for the quickshell#1189 gamepad demo); Kooha is in
+    # home/packages.nix.
 
     # disks (GNOME left behind)
     gparted smartmontools nvme-cli gdu

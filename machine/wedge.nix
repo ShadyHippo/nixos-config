@@ -13,10 +13,18 @@
 #   Does what Bluejay's power toggle effectively does: a full rfkill off→on
 #   cycle of the radio. The firmware reset re-asserts Scan_Enable, which the
 #   plain hcitool write-back (0x03 0x001a 0x02) could NOT keep re-applied —
-#   the firmware dropped it again. The hard cycle is the only consistent fix.
-#   The old wedge-watchdog.service/timer (which polled Scan_Enable every 10 s)
-#   was removed 2026-09-15: the rfkill cycle works, the register probing did
-#   not detect-and-heal reliably.
+#   which the plain hcitool write-back (0x03 0x001a 0x02) could NOT keep
+#   re-applied — the firmware dropped it again. The hard cycle is the only
+#   consistent fix. The old wedge-watchdog.service/timer (which polled
+#   Scan_Enable every 10 s) was removed 2026-09-15: the rfkill cycle works,
+#   the register probing did not detect-and-heal reliably.
+#
+# Also here: the 8087:0025 (9260) udev power/control pin moved over from
+# modules/hardware-generic.nix — keeping the radio out of runtime suspend is
+# a property of this radio, like the wedge itself. NOTE the kernel-side half
+# of that fix, btusb.enable_autosuspend=0, is still set in
+# modules/hardware-generic.nix's boot.kernelParams — the two belong together;
+# move it here too if generic Bluetooth ever needs to lose it.
 #
 # Firmware is already current (ibt-18-16-1.sfi build 201-12.24 == the
 # linux-firmware-20260810 blob) and the 2025 update was reverted upstream
@@ -52,6 +60,14 @@ let
 in
 {
   environment.systemPackages = [ unwedge ];
+
+  # The kernel param alone is not sufficient: the device still ends up with
+  # control=auto and runtime-suspends (verified live). Pin the device node
+  # directly; "on" = pm_runtime_forbid, the link stays in L0 while awake.
+  # (8087:0025 = this machine's Intel Wireless-AC 9260 BT radio.)
+  services.udev.extraRules = ''
+    ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="8087", ATTR{idProduct}=="0025", ATTR{power/control}="on"
+  '';
 
   # NOPASSWD scoped to this one script — the hotkey runs without a terminal to
   # prompt on, so it cannot answer a password prompt. Both the store path and

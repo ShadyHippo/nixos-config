@@ -7,17 +7,8 @@ in
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Kernel modules blacklisted: nouveau panics on this laptop (XPS 9570);
-  # nothing should touch the GTX 1050 Ti (see machine/hardware.nix).
-  boot.blacklistedKernelModules = [
-    "nouveau" "rivafb" "nvidiafb" "rivatv" "nv"
-    "nvidia" "nvidia-drm" "nvidia-modeset" "nvidia-uvm"
-  ];
-  # Lock modprobe out of loading nvidia even by alias/probe.
-  boot.extraModprobeConfig = ''
-    install nvidia /bin/false
-  '';
-
+  # Kernel/firmware: generic only — the XPS 9570's NVIDIA blacklist lives in
+  # machine/hardware.nix.
   time.timeZone = "America/Detroit";
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {

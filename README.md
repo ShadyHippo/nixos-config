@@ -27,8 +27,9 @@ disabled).
   two patches in `patches/`): plug in to pair, unplug, use over Bluetooth. Two
   at once, no input lag. The cable supports no wired input mode.
 - **Intel 9260 page-scan wedge** — this radio intermittently stops listening for
-  incoming Bluetooth. `machine/wedge.nix` detects and re-arms it: a manual
-  hotkey plus a 10 s timer, with an episode log.
+  incoming Bluetooth. `machine/wedge.nix` re-arms it on demand: `$mod+BackSpace`
+  runs `unwedge` — a full rfkill power cycle of the radio. The old 10 s
+  watchdog + episode log was removed 2026-09-15.
 - **Hardware** — keyd caps→escape, thermald + undervolt, Intel Wi-Fi/BT
   firmware, `hid_nintendo` driver, iGPU-only rendering (1050 Ti disabled)
 
@@ -39,8 +40,8 @@ Three package managers live here, and the split is deliberate:
 | Concern | System |
 |---|---|
 | **The desktop itself** — kernel, services, sway, theming, desktop + system packages | **NixOS** (`modules/*`, `configuration.nix`) — declared once, rebuilds atomically |
-| **User-level dev tools you bump constantly** — `opencode`, `maki`, `yt-dlp`, `deno`, `golang` | **mise** (`home/default.nix` → `programs.mise`, tools in `mise/config.toml`) |
-| **Emulators** — Dolphin, RetroArch, PCSX2, etc. with their own config/data layout | **RetroDECK flatpak** (`net.retrodeck.retrodeck`) — declared in `home/default.nix` via nix-flatpak |
+| **User-level dev tools you bump constantly** — `opencode`, `maki`, `yt-dlp`, `deno`, `golang` | **mise** (`home/shell.nix` → `programs.mise`, tools in `mise/config.toml`) |
+| **Emulators** — Dolphin, RetroArch, PCSX2, etc. with their own config/data layout | **RetroDECK flatpak** (`net.retrodeck.retrodeck`) — declared in `home/packages.nix` via nix-flatpak |
 
 The rule of thumb: **part of the environment → Nix; a tool in your toolbox
 that you update weekly and version per project → mise; an app with its own
@@ -63,26 +64,31 @@ Backup RetroDECK → save the `.tar` to NAS → install flatpak on new PC → re
 ## The `machine/` directory — make it *yours* in one place
 
 Everything that is specific to **this computer / this user** lives in `machine/`.
-The rest of the repo (`modules/`, `home/`, `configuration.nix`) is generic and
-reusable. A new adopter touches almost nothing outside `machine/`.
+The rest of the repo (`modules/`, `home/`, `lib/`, `configuration.nix`) is generic
+and reusable. A new adopter touches almost nothing outside `machine/`.
 
-Deleting a file + its one import line in `flake.nix` removes the feature
-entirely — each file below is self-contained.
+One honesty note: the flake builds exactly ONE host
+(`nixosConfigurations.<hostname from identity.nix>`). `machine/` is this host's
+identity/theme/hardware plus its optional **feature modules** — `problue.nix`
+(Switch Pro controller wiring) and `wedge.nix` (the 9260 radio wedge) are
+features of this laptop, not machines of their own. Deleting a file + its one
+import line in `flake.nix` removes the feature entirely — each file below is
+self-contained.
 
 ### File-by-file: what to change for a new machine
 
 | File | What it holds | For a new user |
 |---|---|---|
-| **`machine/identity.nix`** | `username`, `hostname` | **Always change.** Drives the NixOS user, home-manager user, hostname, flake config name (`. #<hostname>`), and even the wallpaper path. Imported by flake.nix, configuration.nix, modules/, and home/. |
-| **`machine/theme.nix`** | Palette (gruvbox + hot-pink accent), GTK/Qt theme names, cursor, wallpaper path, font family/sizes, display scales, popup anchors, bar size | **Edit for your taste/screen.** Colors → re-theme everything. `display.*` → rescale for your panel. Font sizes are tuned for 4K@scale 1. Consumed by configuration.nix, modules/desktop.nix, home/, and the generators below — edit it, everything follows. |
-| **`machine/hardware.nix`** | XPS 9570-specific: NVIDIA disable + udev rule, thermald, Dell fan profile unit, undervolt (-160mV), keyd caps→esc | **Often delete outright** if you're not on an XPS 15 9570. Remove `./machine/hardware.nix` from flake.nix. Undervolt values are tuned for this chip — re-measure yours. keyd caps→esc is a preference you may keep. |
+| **`machine/identity.nix`** | `username`, `hostname` | **Always change.** Drives the NixOS user, home-manager user, hostname, and flake config name (`. #<hostname>`). Imported by flake.nix, configuration.nix, modules/, and home/. |
+| **`machine/theme.nix`** | Palette (gruvbox + hot-pink accent), GTK/Qt theme names, cursor, font family/sizes, display scales, popup anchors, bar size | **Edit for your taste/screen.** Colors → re-theme everything. `display.*` → rescale for your panel. Font sizes are tuned for 4K@scale 1. Consumed by configuration.nix, modules/desktop.nix, home/, and the generators below — edit it, everything follows. |
+| **`machine/hardware.nix`** | XPS 9570-specific: NVIDIA blacklist/disable + udev rule, thermald, Dell fan profile unit, undervolt (-160mV), keyd caps→esc | **Often delete outright** if you're not on an XPS 15 9570. Remove `./machine/hardware.nix` from flake.nix. Undervolt values are tuned for this chip — re-measure yours. keyd caps→esc is a preference you may keep. |
 | **`machine/printing.nix`** | Brother MFC-J6555DW drivers (`brgenml1*`), brscan5 scan backend, avahi, scan/print GUIs | **Delete** if you don't have this printer (remove its flake.nix import). If you have a Brother, add your model's IP/nodename in `hardware.sane.brscan5.netDevices` (there's an example comment). |
 | **`machine/fcitx5.nix`** | Simplified-Chinese Pinyin IME: system `i18n.inputMethod`, CJK font, user configs, sway autostart + `$mod+Shift+t` toggle | **Delete** if you don't need Chinese input (remove its flake.nix import). Nothing else depends on it. |
 | **`machine/vscode.nix`** | VS Code: extensions, user settings, keybindings, icon fix | **Delete or edit** to your taste (remove its flake.nix import). The package installs via home-manager's `programs.vscode`, so removal is complete. |
-| **`machine/resolution.nix`** + **`machine/set-res.sh`** | `$mod+F10/F11/F12` resolution presets (720p/1080p/4K) for the Sharp 4K panel — preset math + sed-generators + the script template | **Delete both** unless you have a panel with a fixed scaler like this one (remove the import in `home/default.nix`). If you keep it: values derive from `theme.nix`, nothing else to edit. |
-| **`machine/gtk4-theme.nix`** | GTK4 gruvbox CSS for non-libadwaita apps (pavucontrol), generated from the palette | **Keep** — it only uses palette values; if you change the palette in `theme.nix` it follows automatically. If you must remove it, delete the import in `home/default.nix` and the `xdg.dataFile` entry that uses it. |
-| **`machine/gtk4-libadwaita.nix`** | libadwaita color overrides (Kooha/GNOME apps) as CSS custom properties, generated from the palette | **Keep** — libadwaita ignores `GTK_THEME`, so this is the only working override; generated from `theme.nix`. If you must remove it, delete the import in `home/default.nix` and the `xdg.configFile."gtk-4.0/gtk.css"` entry that uses it. |
-| **`machine/problue.nix`** | Switch Pro Controller cable pairing: wires in the two patches from `patches/` | **Keep** if you use Switch Pro Controllers; otherwise delete **both** `patches/problue-*` and its `flake.nix` import. See "Bluetooth: ProBlue and the 9260 wedge". |
+| **`machine/resolution.nix`** + **`machine/set-res.sh`** | `$mod+F10/F11/F12` resolution presets (720p/1080p/4K) for the Sharp 4K panel — preset math + sed-generators + the script template | **Delete both** unless you have a panel with a fixed scaler like this one (remove the import in `home/session.nix`). If you keep it: values derive from `theme.nix`, nothing else to edit. |
+| **`machine/gtk4-theme.nix`** | GTK4 gruvbox CSS for non-libadwaita apps (pavucontrol), generated from the palette | **Keep** — it only uses palette values; if you change the palette in `theme.nix` it follows automatically. If you must remove it, delete the import in `home/theming.nix` and the `xdg.dataFile` entry that uses it. |
+| **`machine/gtk4-libadwaita.nix`** | libadwaita color overrides (Kooha/GNOME apps) as CSS custom properties, generated from the palette | **Keep** — libadwaita ignores `GTK_THEME`, so this is the only working override; generated from `theme.nix`. If you must remove it, delete the import in `home/theming.nix` and the `xdg.configFile."gtk-4.0/gtk.css"` entry that uses it. |
+| **`machine/problue.nix`** | Switch Pro Controller cable pairing: wires in the two patches from `patches/`, pins the kernel series the hid-nintendo patch targets | **Keep** if you use Switch Pro Controllers; otherwise delete **both** `patches/problue-*` and its `flake.nix` import. See "Bluetooth: ProBlue and the 9260 wedge". |
 | **`machine/wedge.nix`** (+ `machine/unwedge.sh`) | Intel 9260 wedge rescue: a `$mod+BackSpace` rfkill power cycle of the radio (see "Bluetooth: ProBlue and the 9260 wedge") | **Delete** on machines without this radio (remove the `flake.nix` import). |
 
 Sway, Waybar, Mako, Ghostty and the per-app GTK/Qt env all read from
@@ -95,15 +101,18 @@ Per-monitor placement is NOT in `theme.nix`: that's
 > `machine/` is the ONLY directory you need to reason about to port it.
 > Everything machine-specific + optional lives there. Two import sites matter:
 > **flake.nix** imports `hardware.nix`, `printing.nix`, `fcitx5.nix`,
-> `vscode.nix`, `problue.nix`, `wedge.nix` (remove the line to drop the feature); **home/default.nix**
-> imports `theme.nix`, `resolution.nix`, `gtk4-theme.nix`, and
-> `gtk4-libadwaita.nix` (and reads
-> `identity.nix`). Treat each file as an independent, removable unit — nothing
-> outside `machine/` is machine-tuned. Beware of `machine/resolution.nix`: it
-> looks like a module but is really a script generator with sed-pattern
-> metaprogramming; delete it whole rather than editing it. `home/sway/config`
-> is the static sway config; dynamic values (font, colors, popups) append via
-> `extraConfig` from `theme.nix`.
+> `vscode.nix`, `problue.nix`, `wedge.nix` (remove the line to drop the feature);
+> and the **home/** modules: `home/session.nix` imports `resolution.nix`,
+> `home/theming.nix` imports `gtk4-theme.nix` + `gtk4-libadwaita.nix`, and the
+> hub (`home/default.nix`) reads `identity.nix`. Treat each file as an
+> independent, removable unit — nothing outside `machine/` is machine-tuned.
+> Beware of `machine/resolution.nix`: it looks like a module but is really a
+> script generator with sed-pattern metaprogramming; delete it whole rather
+> than editing it. `home/sway/config` is the static sway config; dynamic
+> values (font, colors, popups) append via `extraConfig` from `theme.nix`.
+> `lib/tokens.nix` is the single @TOKEN@ substitution mechanism (waybar,
+> quickshell menu, set-res.sh) and FAILS THE BUILD if a token is left
+> unreplaced — a typo'd token can no longer ship as literal text.
 
 ## Reproducing on your own hardware
 
@@ -114,7 +123,7 @@ Per-monitor placement is NOT in `theme.nix`: that's
 3. **You**: edit `machine/identity.nix` (username, hostname).
 4. **Hardware**: delete `machine/hardware.nix` and `machine/printing.nix`
    (remove their imports in `flake.nix`), and `machine/resolution.nix` +
-   `machine/set-res.sh` (remove the import in `home/default.nix`) if they
+   `machine/set-res.sh` (remove the import in `home/session.nix`) if they
    don't apply — see the table above.
 5. **Look the part**: edit `machine/theme.nix` (screen size → scales; taste →
    colors). Adjust `home/kanshi/config` for your monitors.
@@ -136,7 +145,7 @@ afterwards:
 
 | Patch | Applied to |
 |---|---|
-| `problue-hid-nintendo-passive-6.18.46.patch` | kernel (`boot.kernelPatches`) — `hid-nintendo` goes passive on USB so bluetoothd owns the controller's `hidraw` |
+| `problue-hid-nintendo-passive-6.18.46.patch` | the `hid_nintendo` kernel module, built out-of-tree against a **pinned 6.18 kernel series** (`boot.kernelPackages` + eval assertion in `machine/problue.nix`; the module derivation patches with `--fuzz=0`) — `hid-nintendo` goes passive on USB so bluetoothd owns the controller's `hidraw` |
 | `problue-bluez-procon-5.86.patch` | BlueZ 5.86 (`hardware.bluetooth.package` override) — implements the wired pairing protocol |
 
 These are not local hacks: the upstream ProBlue repo is at `~/Programming/ProBlue`,
@@ -159,6 +168,13 @@ calling `usb_acpi_power_manageable()` into this Dell's broken `XHC.RHUB` ACPI
 namespace (96 `AE_ALREADY_EXISTS` on every boot, healthy or not). If you
 bisect again, add ONE variable at a time and expect a frozen boot; the deleted
 patch is in git history.
+>
+> Status note: of that trio, `btusb.enable_autosuspend=0` is LIVE again today
+> (`modules/hardware-generic.nix` `boot.kernelParams`, paired with the 8087:0025
+> udev pin in `machine/wedge.nix` — the two halves hold the Scan_Enable fix
+> together). `iwlwifi.bt_coex_active=0` remains absent. If a boot freeze ever
+> returns, that param is suspect #1; the bisection note in `machine/wedge.nix`
+> has the full history.
 
 ### The 9260 wedge itself
 
@@ -172,19 +188,22 @@ Two independent mechanisms:
 
 - `$mod+BackSpace` → `unwedge` (manual rescue, unlocked by a scoped sudoers
   rule): a full rfkill off→on power cycle of the radio — the same thing
-  Bluejay's power toggle does — then a 30 s connect-watch via `bluetoothctl`.
-  (A plain `hcitool cmd 0x03 0x001a 0x02` write-back was NOT consistent — the
-  firmware kept dropping the re-armed register.)
+  Bluejay's power toggle does. Reconnect the controller afterwards (Bluejay,
+  `$mod+b`, or press its button). (A plain `hcitool cmd 0x03 0x001a 0x02`
+  write-back was NOT consistent — the firmware kept dropping the re-armed
+  register.)
 
 ### Deploying bluetooth changes — the gotchas
 
 - `nixos-rebuild switch` **does not restart `bluetooth.service`**. After any
   bluetoothd change: `sudo systemctl restart bluetooth`.
-- `powerOnBoot = false` is deliberate (battery), with a consequence worth
-  knowing: a restart leaves the adapter **off**. Power it back up with bluejay
-  (`$mod+b`) or rfkill.
-- A `boot.kernelPatches` change rebuilds the **entire kernel** (hours); a BlueZ
-  patch rebuilds in minutes. The new kernel only takes effect after a **reboot**.
+- `powerOnBoot = true` (modules/hardware-generic.nix): the adapter powers up at
+  boot. Toggle it at runtime with bluejay (`$mod+b`) or rfkill.
+- The hid-nintendo patch does NOT go through `boot.kernelPatches` — it builds
+  only the module out-of-tree against the pinned 6.18 series, so a hid-nintendo
+  fix costs a module build (seconds/minutes), not a kernel rebuild (hours). A
+  BlueZ patch rebuilds in minutes. Kernel/module changes only take effect
+  after a **reboot**.
 - Flake visibility: Nix only sees **git-tracked** files. `git add` any new file
   before building, or evaluation fails with `Path … is not tracked by Git`.
 
@@ -221,7 +240,7 @@ font cascade — press `Ctrl+0` in it (reset font size) to rejoin.
 | `$mod+n` | notification history (mako buffer via fuzzel viewer) |
 | `$mod+o` | wlsunset nightlight toggle (warm orange ~4000K, no timer) |
 | `$mod+b` | Bluejay bluetooth manager toggle (floating popup; status in waybar) |
-| `$mod+BackSpace` | fix the 9260 Bluetooth wedge (rfkill cycle; was also auto-fixed every 10 s — that watchdog was removed) |
+| `$mod+BackSpace` | fix the 9260 Bluetooth wedge (rfkill power cycle; the 10 s auto-watchdog was removed) |
 
 ### IME (works in every app)
 
@@ -261,12 +280,14 @@ split (stock). The resize mode (`$mod+r`) also uses vim keys.
 
 ```
 flake.nix               # entry: nixpkgs pins, system, home-manager, machine/ imports
-configuration.nix       # machine-level glue (env vars via machine/theme.nix)
+configuration.nix       # machine-level glue + nixpkgs.overlays (patched quickshell/jellyfin/slurp)
 hardware-configuration.nix  # generated by nixos-generate-config (machine-specific)
-machine/                # ← EVERYTHING per-device / per-user (see table above)
+lib/
+  tokens.nix            # the single @TOKEN@ substitution helper (fails on leftovers)
+machine/                # ← EVERYTHING per-device / per-user (one host + feature modules)
   identity.nix          # username, hostname
   theme.nix             # palette, fonts, scales, popup anchors (pure data)
-  hardware.nix          # XPS 9570 tuning: undervolt, thermald, keyd
+  hardware.nix          # XPS 9570 tuning: NVIDIA blacklist, undervolt, thermald, keyd
   printing.nix          # Brother MFC-J6555DW
   fcitx5.nix            # Pinyin IME (system + user + sway wiring)
   vscode.nix            # VS Code config + extensions
@@ -274,18 +295,19 @@ machine/                # ← EVERYTHING per-device / per-user (see table above)
   gtk4-theme.nix        # GTK4 CSS, generated from theme.nix palette
   gtk4-libadwaita.nix   # libadwaita color overrides (Kooha/GNOME apps)
   set-res.sh            # template read by resolution.nix
-  problue.nix           # Switch Pro Controller cable pairing (2 patches)
-  wedge.nix             # Intel 9260 Bluetooth wedge rescue (sudoers + package)
+  problue.nix           # Switch Pro Controller cable pairing (2 patches, pinned kernel series)
+  wedge.nix             # Intel 9260 Bluetooth wedge rescue (sudoers + package + 9260 udev pin)
   unwedge.sh            #   rfkill-cycle rescue script
 
 patches/                # the .patch files the modules above apply
 modules/                # generic, reusable on any machine
-  base.nix              # boot, firmware blacklist, locale, users, system packages
+  base.nix              # boot, locale, users, system packages
   desktop.nix           # sway/regreet/GTK+Qt theming plumbing, fonts, portals
   apps.nix dev.nix audio.nix gaming.nix
   hardware-generic.nix  # graphics, bluetooth, fwupd — anything machine-agnostic
 home/                   # per-user (session) config
-  default.nix           # home-manager hub: packages, shell, sway, waybar, theming
+  default.nix           # home-manager hub (imports the modules below)
+  packages.nix env.nix shell.nix session.nix waybar.nix quickshell-menu.nix theming.nix
   sway/ waybar/ fuzzel/ kanshi/ swayosd/ cursor/ kvantum/ color-schemes/
 images/                 # README screenshot + wallpapers (wired via home/default.nix)
 SA2 Modding/            # personal game-modding scripts (zsh aliases: sa2-mods, sa2-setup)

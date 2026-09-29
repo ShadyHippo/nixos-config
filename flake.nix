@@ -35,6 +35,12 @@
       };
     in
     {
+      # Single host: identity.hostname. machine/ is THIS host's identity/theme/
+      # hardware plus its optional feature modules (problue = Switch Pro
+      # controller wiring, wedge = the 9260 radio wedge) — feature modules of
+      # one laptop, not separate machines. A second host means new machine/
+      # identity+hardware files and a second nixosConfigurations entry keyed by
+      # that host's identity.
       nixosConfigurations.${identity.hostname} = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {

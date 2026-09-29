@@ -35,9 +35,6 @@
   # ── Cursor theme name (package rebuilt recolored — home/cursor/theme.nix) ──
   cursorTheme = "Bibata-Modern-Classic";
 
-  # ── Wallpaper (file installed by home-manager into the user's home) ──
-  wallpaper = "/home/${(import ./identity.nix).username}/.local/share/backgrounds/gruvbox-astronaut-4k.png";
-
   # ── FONTS ──
   font = {
     family = "Cousine Nerd Font";

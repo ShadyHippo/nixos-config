@@ -77,7 +77,43 @@ in
       });
       # quickshell with ccache: first build cold (populates the cache),
       # subsequent rebuilds only compile TUs the patch actually touched.
-      quickshell = prev.quickshell.override { stdenv = final.ccacheStdenv; };
+      # SINGLE SOURCE OF TRUTH for the patched quickshell — the game launcher
+      # menu (home/quickshell/shell.qml) reads gamepad input from evdev (mod
+      # chords + menu navigation) and dispatches it as in-process IPC calls
+      # (QS_GAMEPAD_IPC_TARGET / QS_GAMEPAD_HOME_FUNCTION redirect, wired in
+      # home/quickshell-menu.nix). Patches live in ./patches/ and target
+      # nixpkgs' quickshell 0.3.0 — re-base on version drift, both sides fail
+      # loudly. Disclosed prototype for quickshell-mirror/quickshell#1189, not
+      # upstreamable as-is.
+      quickshell = (prev.quickshell.override { stdenv = final.ccacheStdenv; }).overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ./patches/quickshell-gamepad-0.3.0.patch ];
+        # Was RelWithDebInfo + separateDebugInfo. -g costs ~20-40% compile time
+        # per TU and the split debug output was 87MB. NDEBUG was already set by
+        # RelWithDebInfo, so only -O2→-O3 + no-debug-info change. Tradeoff:
+        # cpptrace/gdb crash traces lose source lines (function names survive).
+        cmakeBuildType = "Release";
+        separateDebugInfo = false;
+      });
+
+      # The patched Jellyfin desktop client (Qt6 + libmpv). An overlay (not a
+      # home-manager override) so EVERY pkgs.jellyfin-desktop reference gets the
+      # patched build — referencing the stock package anywhere silently launched
+      # the STOCK client: no swap checkbox, HTML5 playback instead of mpv, and
+      # its settings writer then dropped the hidden "gamepad settings" section
+      # from the conf (i.e. the toggle appeared to be forgotten). Patches
+      # target jellyfin-desktop 2.0.0 — re-base on version drift.
+      jellyfin-desktop = (prev.jellyfin-desktop.override { stdenv = final.ccacheStdenv; }).overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [
+          ./patches/jellyfin-desktop-2.0.0-injection-race.patch
+          ./patches/jellyfin-desktop-2.0.0-gamepad-swap.patch
+        ];
+        # Qt keys the QML disk cache by source URL, not content: a .qmlc
+        # compiled from an earlier build silently runs instead of patched
+        # webview.qml (this masked every webview edit during testing until the
+        # cache was wiped). Compile from source at startup — it is one file,
+        # a few ms — so patch revisions can never be shadowed by stale cache.
+        qtWrapperArgs = (old.qtWrapperArgs or [ ]) ++ [ "--set QML_DISABLE_DISK_CACHE 1" ];
+      });
     })
   ];
 
