@@ -140,6 +140,11 @@ in
       "image/x-nikon-nef"   = "org.kde.gwenview.desktop";
       "image/x-sony-arw"    = "org.kde.gwenview.desktop";
 
+      # .aseprite sprites → aseprite (registered by the package's
+      # aseprite.xml; without this it would fall into the image/* →
+      # gwenview bucket above, which can't edit sprites)
+      "image/x-aseprite"     = "aseprite.desktop";
+
       # video → vlc
       "video/mp4"           = "vlc.desktop";
       "video/x-matroska"    = "vlc.desktop";

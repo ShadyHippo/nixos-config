@@ -1,5 +1,22 @@
 {
   "nodes": {
+    "aseprite-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1777409630,
+        "narHash": "sha256-+rLrk/c3WLqNhXQ7J0eeqZ3h4PsbZad61Cxw0RubWgk=",
+        "rev": "793fb6526540b4c6f5cf8381ae189241cb003fdf",
+        "revCount": 1,
+        "submodules": true,
+        "type": "git",
+        "url": "file:///home/hippo/git-dirs/aseprite"
+      },
+      "original": {
+        "submodules": true,
+        "type": "git",
+        "url": "file:///home/hippo/git-dirs/aseprite"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -70,6 +87,7 @@
     },
     "root": {
       "inputs": {
+        "aseprite-src": "aseprite-src",
         "home-manager": "home-manager",
         "nix-flatpak": "nix-flatpak",
         "nixpkgs": "nixpkgs",

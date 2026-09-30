@@ -19,6 +19,21 @@
     nix-flatpak = {
       url = "github:gmodena/nix-flatpak";
     };
+
+    # Aseprite source: LOCAL clone at ~/git-dirs/aseprite, built from source
+    # (the aseprite overlay in configuration.nix). EULA allows compiling the
+    # source yourself; what it forbids is redistributing binaries — so the
+    # source stays ours, the build stays local. git+file + submodules because
+    # the build needs laf/ and third_party/*: a path: input would drag the
+    # 83MB .git into the store and go stale SILENTLY (tested — lock narHash
+    # masks edits); this pins a rev like any other input. Bump: checkout the
+    # tag nixpkgs packages in the clone, then `nix flake update aseprite-src`.
+    # Absolute path — input URLs can't interpolate, so the username must
+    # match machine/identity.nix (flake.nix already pins system likewise).
+    aseprite-src = {
+      url = "git+file:///home/hippo/git-dirs/aseprite?submodules=1";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, ... }@inputs:

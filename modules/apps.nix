@@ -17,6 +17,9 @@
 
     # creative
     gimp
+    # Pixel-art/animation editor, built from source per its EULA — src is the
+    # local clone via the aseprite overlay (see configuration.nix).
+    aseprite
     # Cura: Qt6 app, wrapped with QT_SCALE_FACTOR=1.5 for 4K panel.
     (cura-appimage.overrideAttrs (old: {
       postFixup = (old.postFixup or "") + ''

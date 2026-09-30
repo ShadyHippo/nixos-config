@@ -114,6 +114,22 @@ in
         # a few ms — so patch revisions can never be shadowed by stale cache.
         qtWrapperArgs = (old.qtWrapperArgs or [ ]) ++ [ "--set QML_DISABLE_DISK_CACHE 1" ];
       });
+
+      # Aseprite built from the LOCAL clone (flake input aseprite-src, i.e.
+      # ~/git-dirs/aseprite) instead of nixpkgs' fetchFromGitHub. Only `src`
+      # changes: the clone sits on the tag nixpkgs packages (v1.3.17.2), and
+      # its tree is byte-identical to nixpkgs' fetch (same narHash, verified),
+      # so the shared-lib patches, version substitution and data/strings
+      # postUnpack all apply untouched. Why local at all: the license (EULA
+      # 2g) permits compiling the source for your own use — commercial art
+      # made WITH it is explicitly fine (FAQ) — but forbids redistributing
+      # binaries, hence nixpkgs ships it `unfree` and Hydra never caches it:
+      # it only ever builds HERE, from source we control. Contract like
+      # quickshell above: keep the clone on nixpkgs' packaged tag, or the
+      # shared-* patches fail loudly on version drift.
+      aseprite = prev.aseprite.overrideAttrs (old: {
+        src = inputs.aseprite-src;
+      });
     })
   ];
 
