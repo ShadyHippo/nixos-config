@@ -89,13 +89,20 @@ exec qs -n
 #   Ctrl+Alt+PrintScr  focused window, 1/2 size -> clipboard
 #   $mod+Shift+s       snip tool: rectangle select with LIVE PIXEL MEASUREMENTS
 #   $mod+Alt+Shift+s   same snip, but downscaled to 1/2 size -> clipboard
+#
+# --no-repeat is REQUIRED on all six. Without it a held key re-fires the
+# binding at the keyboard repeat rate (25/s here, 600ms delay), so a 1s hold
+# spawns ~10 concurrent grim+ffmpeg+wl-copy chains. grim -s and wl-copy both
+# peg cores, so each capture made the next one slower - a self-amplifying
+# pileup that showed up as a multi-second stall and stray background
+# wl-copy processes holding the clipboard.
 # ---------------------------------------------------------------------------
-bindsym Print               exec ~/.config/sway/scripts/screenshot.sh full
-bindsym Alt+Print           exec ~/.config/sway/scripts/screenshot.sh full-half
-bindsym Ctrl+Print          exec ~/.config/sway/scripts/screenshot.sh window
-bindsym Ctrl+Alt+Print      exec ~/.config/sway/scripts/screenshot.sh window-half
-bindsym $mod+Shift+s        exec ~/.config/sway/scripts/screenshot.sh snip
-bindsym $mod+Alt+Shift+s    exec ~/.config/sway/scripts/screenshot.sh snip-half
+bindsym --no-repeat Print            exec ~/.config/sway/scripts/screenshot.sh full
+bindsym --no-repeat Alt+Print        exec ~/.config/sway/scripts/screenshot.sh full-half
+bindsym --no-repeat Ctrl+Print       exec ~/.config/sway/scripts/screenshot.sh window
+bindsym --no-repeat Ctrl+Alt+Print   exec ~/.config/sway/scripts/screenshot.sh window-half
+bindsym --no-repeat $mod+Shift+s     exec ~/.config/sway/scripts/screenshot.sh snip
+bindsym --no-repeat $mod+Alt+Shift+s exec ~/.config/sway/scripts/screenshot.sh snip-half
 
 # Resolution presets (game streaming / native play on the Intel GPU)
 bindsym $mod+F10 exec ~/.config/sway/scripts/set-res.sh 720     # native play
