@@ -43,6 +43,19 @@
   # (The matching 8087:0025 udev power/control pin lives in machine/wedge.nix —
   # it is a property of THIS machine's Intel 9260 radio, like the wedge itself.)
 
+  # ---- Magic SysRq keyboard chord off ----------------------------------------
+  # PrintScreen emits KEY_SYSRQ, and Alt+PrintScreen is the kernel's magic-SysRq
+  # trigger. The kernel's sysrq input filter swallows EVERY key event while that
+  # chord is held, then re-injects "Alt press + SysRq press/release" only after
+  # Alt is released (drivers/tty/sysrq.c: sysrq_filter / sysrq_reinject_alt_sysrq).
+  # A held Ctrl is gone by then, so sway's Ctrl+Alt+Print loses its Ctrl and
+  # fires the Alt+Print bind instead (swaywm/sway#4208, #5618). Writing 0
+  # unregisters the filter (sysrq_toggle_support), so Alt+Print / Ctrl+Alt+Print
+  # reach the compositor verbatim — and Alt+Print is no longer delayed to key-up.
+  # Cost: the keyboard REISUB recovery sequence; `echo <key> > /proc/sysrq-trigger`
+  # still works programmatically.
+  boot.kernel.sysctl."kernel.sysrq" = 0;
+
   # ---- Nintendo Switch controllers (Joy-Con / Pro) ---------------------------
   # hid_nintendo: kernel's native driver for Switch controllers.
   boot.kernelModules = [ "hid_nintendo" ];

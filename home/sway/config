@@ -90,6 +90,10 @@ exec qs -n
 #   $mod+Shift+s       snip tool: rectangle select with LIVE PIXEL MEASUREMENTS
 #   $mod+Alt+Shift+s   same snip, but downscaled to 1/2 size -> clipboard
 #
+# Alt+PrintScr MUST stay off the kernel's magic-SysRq chord, or Ctrl+Alt+Print
+# arrives here as bare Alt+Print. That is why `kernel.sysrq = 0` is set in
+# modules/hardware-generic.nix — do not remove it while these binds exist.
+#
 # --no-repeat is REQUIRED on all six. Without it a held key re-fires the
 # binding at the keyboard repeat rate (25/s here, 600ms delay), so a 1s hold
 # spawns ~10 concurrent grim+ffmpeg+wl-copy chains. grim -s and wl-copy both
