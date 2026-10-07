@@ -50,6 +50,18 @@ in
       [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
       exec env GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.xwayland}}" kooha
     '')
+    # Pinta (GTK4/libadwaita raster editor, Paint.NET-style). Same GTK4-on-4K
+    # situation as kooha: the Wayland backend ignores GDK_SCALE, so it runs on
+    # XWayland via pinta-scaled (desktop entry below). Theming is automatic —
+    # as a libadwaita app it reads ~/.config/gtk-4.0/gtk.css
+    # (machine/gtk4-libadwaita.nix), so it comes up gruvbox-dark like Kooha.
+    pinta
+    # "$@" forwards file arguments (Exec=%F), so `pinta-scaled foo.png` and
+    # "Open with → Pinta" keep working through the wrapper.
+    (pkgs.writeShellScriptBin "pinta-scaled" ''
+      [ -f "$HOME/.config/sway/preset" ] && . "$HOME/.config/sway/preset"
+      exec env GDK_BACKEND=x11 GDK_SCALE="''${SCALE:-${toString theme.display.gtk.xwayland}}" pinta "$@"
+    '')
     # Bluejay (Qt6/QML Kirigami) needs the QQC2 Desktop Style (org.kde.desktop)
     # in its QML import path, or QtQuickControls falls back to the light Basic
     # style (white window). The style paints via QStyle (kvantum) + the KDE
@@ -110,6 +122,39 @@ in
       Keywords = "Screencast;Recorder;Screen;Video;";
       DBusActivatable = "false";
       StartupNotify = "true";
+    };
+  };
+
+  # Pinta: same file id as the package entry → launchers run the scaled
+  # (XWayland) wrapper instead of bare `pinta`. StartupWMClass is "pinta" (the
+  # binary name), NOT the desktop-file id: the XWayland shim gives the window an
+  # X11 WM_CLASS and NO app_id — the same trap as Kooha (see home/sway/config).
+  # Keep Name/Icon/MimeType/Keywords for searchability + file associations.
+  xdg.desktopEntries."com.github.PintaProject.Pinta" = {
+    name = "Pinta";
+    genericName = "Image Editor";
+    comment = "Easily create and edit images";
+    exec = "pinta-scaled %F";
+    icon = "com.github.PintaProject.Pinta";
+    terminal = false;
+    categories = [ "Graphics" "2DGraphics" "RasterGraphics" "GTK" ];
+    mimeType = [
+      "image/bmp" "image/gif" "image/jpeg" "image/jpg" "image/pjpeg" "image/png"
+      "image/svg+xml" "image/tiff" "image/x-bmp" "image/x-gray" "image/x-icb"
+      "image/x-ico" "image/x-png" "image/x-portable-anymap" "image/x-portable-bitmap"
+      "image/x-portable-graymap" "image/x-portable-pixmap" "image/x-xbitmap"
+      "image/x-xpixmap" "image/x-pcx" "image/x-targa" "image/x-tga"
+      "image/openraster" "image/webp"
+    ];
+    startupNotify = false;
+    # No top-level options for these in this home-manager release — settings
+    # is the escape hatch. DBusActivatable=false so launchers honour Exec (the
+    # wrapper's env); StartupWMClass="pinta" is the X11 binary class the
+    # XWayland shim exposes.
+    settings = {
+      Keywords = "draw;drawing;paint;painting;graphics;raster;2d;";
+      DBusActivatable = "false";
+      StartupWMClass = "pinta";
     };
   };
 
