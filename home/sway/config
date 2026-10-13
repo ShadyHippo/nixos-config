@@ -76,10 +76,12 @@ exec polkit-gnome-authentication-agent-1 # root auth prompts (replaces default)
 # Locks ONLY when the machine actually sleeps (e.g. lid close). No idle timers.
 exec swayidle -w before-sleep 'swaylock -f -c 282828'
 
-# Game launcher menu (quickshell) — starts hidden, $mod+g toggles it. NOT
-# exec_always: set-res.sh's `swaymsg reload` must not respawn it (`exec` only
-# runs at startup; -n blocks a duplicate if ever started by hand too).
-exec qs -n
+# Game launcher menu (quickshell) is NOT started here — it runs as the
+# `quickshell.service` systemd user unit (supervised, auto-restarts on any
+# exit, reloads on rebuild; see home/quickshell-menu.nix). It used to be
+# `exec qs -n`, but a plain `exec` fires only at sway startup, so any exit
+# (crash, `qs kill`) left it dead for the rest of the session.
+# $mod+g below still toggles it via a plain `qs ipc call` (default config).
 
 # ---------------------------------------------------------------------------
 # Screenshots — clipboard only, Windows-snipping-tool style

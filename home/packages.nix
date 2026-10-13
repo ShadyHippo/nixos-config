@@ -26,6 +26,13 @@ in
     fastfetch              # system info fetch
     imagemagick            # convert (required by scripts/build_db.py)
     libwebp                # cwebp (required by scripts/build_db.py)
+
+    # Headless Chromium for agent-driven visual verification of web apps (e.g.
+    # the SparkleUnicorn PixiJS game on the vite dev server). Used as
+    # `chromium --headless=new --enable-unsafe-swiftshader` for screenshots, and
+    # driven over the Chrome DevTools Protocol (Node's built-in WebSocket, no
+    # npm deps) to script key input. Not intended for interactive browsing.
+    chromium
     kdePackages.dolphin    # file manager
     # Official Jellyfin desktop client (Qt6 + libmpv) — the patched build from
     # configuration.nix's overlay (injection-race + #958 A/B swap graft;

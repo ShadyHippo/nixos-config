@@ -56,8 +56,14 @@
     hyfetch ani-cli
   ];
 
-  # mesh VPN; run `sudo tailscale up` post-install
+  # mesh VPN; run `sudo tailscale up` once post-install (login persists, so
+  # tailscaled reconnects automatically on every boot from its saved state).
   services.tailscale.enable = true;
+  # accept subnet routes advertised by other nodes; "client" relaxes reverse-path
+  # filtering so routed traffic isn't dropped. extraSetFlags runs `tailscale set`
+  # on each boot, so it applies without an auth key.
+  services.tailscale.useRoutingFeatures = "client";
+  services.tailscale.extraSetFlags = [ "--accept-routes" ];
 
   # LocalSend (LAN file transfer) — the module installs the package and opens
   # port 53317 (TCP + UDP) in the firewall.

@@ -8,7 +8,7 @@
 // Sizes are budgeted for the 720p preset (1280×720) and scaled up on larger
 // outputs via card.scale, so the menu never overflows when you launch games.
 //
-// Autostart: sway `exec qs -n` (starts hidden — shown: false).
+// Autostart: quickshell.service (systemd user unit; starts hidden — shown: false).
 // Toggle:    $mod+g → qs ipc call menu toggle   (also: open / hide / Esc /
 //            controller Home). D-pad/stick move the selection; A activates
 //            (launch / open / apply), and on a window it selects (focuses)
