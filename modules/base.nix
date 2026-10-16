@@ -60,6 +60,19 @@ in
 
     # Network monitoring / debugging
     net-tools                     # ifconfig, netstat, route, arp
+    dnsutils                      # nslookup, dig, host (BIND client tools)
+    doggo                         # modern dig alternative (DNS lookups)
+    traceroute                    # classic traceroute (mtr is the interactive view)
+    nmap                          # port scanning (+ ncat)
+    tcpdump                       # packet capture (needs root/cap)
+    iftop                         # per-connection bandwidth graph (nload is per-interface)
+    socat                         # arbitrary sockets / port relays
+    inetutils                     # telnet, ftp, whois-alike odds and ends
+    whois                         # domain/IP registration lookups
+    iw                            # wireless config (`iw dev`), pairs with wavemon
+    ethtool                       # NIC link speed, offload, wake-on-lan
+    speedtest-cli                 # bandwidth test against Ookla
+    httpie                        # human-friendly HTTP client for APIs
     nload                         # per-interface bandwidth graph
     nethogs                       # per-process bandwidth usage
     mtr                           # traceroute + ping combined
