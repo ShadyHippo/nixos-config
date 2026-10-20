@@ -51,8 +51,8 @@
   # sudo undervolt read to verify. Values tuned for THIS chip's voltage curve.
   services.undervolt = {
     enable = true;
-    coreOffset = -160;
-    gpuOffset = -160;
+    coreOffset = -120;
+    gpuOffset = -120;
     p1.limit = 35;       # sustained (PL1)
     p1.window = 28;
     p2.limit = 45;       # burst (PL2)
