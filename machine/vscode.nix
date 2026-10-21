@@ -21,6 +21,8 @@ in
       profiles.default.extensions = with pkgs.vscode-extensions; [
         golang.go
         jdinhlife.gruvbox
+        ms-vscode-remote.remote-ssh
+        ms-vscode-remote.remote-ssh-edit
         jnoortheen.nix-ide
         mechatroner.rainbow-csv
         oderwat.indent-rainbow
