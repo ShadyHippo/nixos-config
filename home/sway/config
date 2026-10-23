@@ -38,12 +38,13 @@ input type:touchpad {
     # 2 fingers = right-click, 3 fingers = middle-click (libinput
     # lrm = 1:L 2:R 3:M; lmr would make 2 fingers = middle, 3 = right)
     tap_button_map lrm
-    # click_method none: kill the clickpad corner zones (button_areas
-    # = default maps bottom/right corner single-clicks to right/middle). This
-    # way a ONE-finger PRESS is always left everywhere; right/middle comes from
-    # 2/3-finger taps above instead. (libinput has no "2-finger double-click"
-    # mapping - taps are single L/R/M button presses only.)
-    click_method none
+    # click_method clickfinger: physical clicks use finger COUNT, not zones.
+    # 1 finger = left, 2 fingers = right (button held -> 2-finger click-drag
+    # works), 3 fingers = middle. No button_areas corner zones, so a one-finger
+    # press is always left everywhere. Required because this is a divingboard
+    # clickpad: a "2-finger right click and hold" only exists via clickfinger
+    # (click_method none disables physical clicks entirely except left).
+    click_method clickfinger
     # 4K speed (~2x default 0.0). sway 1.12 renamed accel_speed -> pointer_accel
     pointer_accel 0.6
 }
