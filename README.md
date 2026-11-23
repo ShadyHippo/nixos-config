@@ -145,7 +145,7 @@ afterwards:
 
 | Patch | Applied to |
 |---|---|
-| `problue-hid-nintendo-passive-6.18.46.patch` | the `hid_nintendo` kernel module, built out-of-tree against a **pinned 6.18 kernel series** (`boot.kernelPackages` + eval assertion in `machine/problue.nix`; the module derivation patches with `--fuzz=0`) — `hid-nintendo` goes passive on USB so bluetoothd owns the controller's `hidraw` |
+| `problue-hid-nintendo-passive-6.18.64.patch` | the `hid_nintendo` kernel module, built out-of-tree against a **pinned 6.18 kernel series** (`boot.kernelPackages` + eval assertion in `machine/problue.nix`; the module derivation patches with `--fuzz=0`) — `hid-nintendo` goes passive on USB so bluetoothd owns the controller's `hidraw` |
 | `problue-bluez-procon-5.86.patch` | BlueZ 5.86 (`hardware.bluetooth.package` override) — implements the wired pairing protocol |
 
 These are not local hacks: the upstream ProBlue repo is at `~/Programming/ProBlue`,
@@ -201,7 +201,8 @@ Two independent mechanisms:
   boot. Toggle it at runtime with bluejay (`$mod+b`) or rfkill.
 - The hid-nintendo patch does NOT go through `boot.kernelPatches` — it builds
   only the module out-of-tree against the pinned 6.18 series, so a hid-nintendo
-  fix costs a module build (seconds/minutes), not a kernel rebuild (hours). A
+  fix costs one module build (~1.5 min — `make M=drivers/hid` compiles every
+  HID driver, not just ours), not a kernel rebuild (hours). A
   BlueZ patch rebuilds in minutes. Kernel/module changes only take effect
   after a **reboot**.
 - Flake visibility: Nix only sees **git-tracked** files. `git add` any new file

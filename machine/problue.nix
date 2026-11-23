@@ -21,9 +21,10 @@
 #   kernel's `dev` output, then hand it to boot.extraModulePackages. Same
 #   install path + a lower meta.priority means it wins over the in-tree .ko.xz
 #   in pkgs.buildEnv (system.modulesTree). The kernel itself stays the stock,
-#   binary-cached 6.18.46 — so hid-nintendo fixes cost seconds, not a 2h kernel
-#   rebuild. This is the nixpkgs manual's "Developing kernel modules" recipe
-#   and the wiki's "Patching a single In-tree kernel module".
+#   binary-cached 6.18.x — so a hid-nintendo fix costs a ~1.5 min module build
+#   (kbuild's M= target compiles all of drivers/hid, not just our file), not a
+#   2h kernel rebuild. This is the nixpkgs manual's "Developing kernel modules"
+#   recipe and the wiki's "Patching a single In-tree kernel module".
 #
 #   LIMIT: this only holds while the change stays inside modular driver code.
 #   Touch a header the built-in kernel uses and it has to go back through
@@ -63,7 +64,7 @@ let
     inherit (kernel) version postPatch;
     inherit (kernel) src;
 
-    patches = [ ../patches/problue-hid-nintendo-passive-6.18.46.patch ];
+    patches = [ ../patches/problue-hid-nintendo-passive-6.18.64.patch ];
 
     # No fuzz: a patch that only half-applies must fail the build, not
     # silently produce a module built from partially-patched source.
@@ -137,7 +138,7 @@ in
     assertion = lib.hasPrefix "6.18." config.boot.kernelPackages.kernel.version;
     message = "problue: the hid-nintendo patch targets kernel 6.18.x; nixpkgs now ships "
       + "${config.boot.kernelPackages.kernel.version} — re-base "
-      + "patches/problue-hid-nintendo-passive-6.18.46.patch and update the pin above.";
+      + "patches/problue-hid-nintendo-passive-6.18.64.patch and update the pin above.";
   }];
 
   # With the wired_mode switch (below) opting a wired Pro Controller into full

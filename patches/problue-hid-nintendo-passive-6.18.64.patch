@@ -1,4 +1,4 @@
-# ProBlue - hid-nintendo USB passivity + wired_mode opt-in (kernel 6.18.46)
+# ProBlue - hid-nintendo USB passivity + wired_mode opt-in (kernel 6.18.64)
 #
 # Default: on the USB transport only, hid-nintendo binds and exposes hidraw but
 # sends nothing: no 0x80 02/03/04 session, no subcommands, no LED/battery init,
@@ -28,10 +28,11 @@
 # Ogorchock and contributors, GPL-2.0-or-later). Protocol background: dekuNukem,
 # Nintendo_Switch_Reverse_Engineering.
 
-diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
---- a/drivers/hid/hid-nintendo.c	2026-09-22 16:05:48.538432041 -0400
-+++ b/drivers/hid/hid-nintendo.c	2026-09-22 16:05:48.540395110 -0400
-@@ -771,6 +771,79 @@
+diff --git a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
+index 3464235..1636488 100644
+--- a/drivers/hid/hid-nintendo.c
++++ b/drivers/hid/hid-nintendo.c
+@@ -771,6 +771,79 @@ static inline bool joycon_using_usb(struct joycon_ctlr *ctlr)
  	return ctlr->hdev->bus == BUS_USB;
  }
  
@@ -111,7 +112,7 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  static int __joycon_hid_send(struct hid_device *hdev, u8 *data, size_t len)
  {
  	u8 *buf;
-@@ -2464,9 +2537,35 @@
+@@ -2463,9 +2536,35 @@ static int joycon_init(struct hid_device *hdev)
  	int ret = 0;
  
  	mutex_lock(&ctlr->output_mutex);
@@ -150,7 +151,7 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  		/* set baudrate for improved latency */
  		ret = joycon_send_usb(ctlr, JC_USB_CMD_BAUDRATE_3M, HZ);
  		if (ret) {
-@@ -2476,21 +2575,19 @@
+@@ -2475,21 +2574,19 @@ static int joycon_init(struct hid_device *hdev)
  			 */
  			hid_warn(hdev, "Failed to set baudrate (ret=%d), continuing anyway\n", ret);
  		}
@@ -174,7 +175,7 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  	}
  
  	/* needed to retrieve the controller type */
-@@ -2641,6 +2738,12 @@
+@@ -2645,6 +2742,12 @@ static int nintendo_hid_probe(struct hid_device *hdev,
  
  	ctlr->hdev = hdev;
  	ctlr->ctlr_state = JOYCON_CTLR_STATE_INIT;
@@ -187,8 +188,8 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  	ctlr->rumble_queue_head = 0;
  	ctlr->rumble_queue_tail = 0;
  	hid_set_drvdata(hdev, ctlr);
-@@ -2690,6 +2793,17 @@
- 		goto err_close;
+@@ -2694,6 +2797,17 @@ static int nintendo_hid_probe(struct hid_device *hdev,
+ 		goto err_io_stop;
  	}
  
 +	/*
@@ -205,17 +206,17 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  	/* Initialize the leds */
  	ret = joycon_leds_create(ctlr);
  	if (ret) {
-@@ -2716,7 +2830,8 @@
+@@ -2720,7 +2834,8 @@ static int nintendo_hid_probe(struct hid_device *hdev,
  	return 0;
  
  err_ida:
 -	ida_free(&nintendo_player_id_allocator, ctlr->player_id);
 +	if (ctlr->player_id != U32_MAX)
 +		ida_free(&nintendo_player_id_allocator, ctlr->player_id);
- err_close:
+ err_io_stop:
+ 	hid_device_io_stop(hdev);
  	hid_hw_close(hdev);
- err_stop:
-@@ -2741,7 +2856,8 @@
+@@ -2746,7 +2861,8 @@ static void nintendo_hid_remove(struct hid_device *hdev)
  	spin_unlock_irqrestore(&ctlr->lock, flags);
  
  	destroy_workqueue(ctlr->rumble_queue);
@@ -225,7 +226,7 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  
  	hid_hw_close(hdev);
  	hid_hw_stop(hdev);
-@@ -2755,9 +2871,13 @@
+@@ -2760,9 +2876,13 @@ static int nintendo_hid_resume(struct hid_device *hdev)
  	int ret;
  
  	hid_dbg(hdev, "resume\n");
@@ -242,7 +243,7 @@ diff -ruN a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
  		return 0;
  	}
  
-@@ -2834,7 +2954,21 @@
+@@ -2839,7 +2959,21 @@ static struct hid_driver nintendo_hid_driver = {
  };
  static int __init nintendo_init(void)
  {
